@@ -8,7 +8,6 @@ import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
-// TODO Considering SensorEventListener2
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
@@ -20,8 +19,6 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.DataApi;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
@@ -29,6 +26,8 @@ import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
+
+// TODO Considering SensorEventListener2
 
 
 public class ControllerActivity extends Activity implements SensorEventListener {
@@ -94,6 +93,20 @@ public class ControllerActivity extends Activity implements SensorEventListener 
                 .build();
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+//        if (!mResolvingError) {  // more about this later //TODO
+        mGoogleApiClient.connect();
+//        }
+    }
+
+    @Override
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
+    }
+
     private void setUpMessageReceiver() {
         IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
         MessageReceiver messageReceiver = new MessageReceiver();
@@ -149,11 +162,11 @@ public class ControllerActivity extends Activity implements SensorEventListener 
 
             switch (messageType) {
                 case TYPE_MSSG:
-                    Log.d(TAG,"send_TYPE_MSSG");
+//                    Log.d(TAG,"send_TYPE_MSSG");
                     sendingMessage();
                     break;
                 case TYPE_DATA:
-                    Log.d(TAG,"send_TYPE_DATA");
+//                    Log.d(TAG,"send_TYPE_DATA");
                     sendingDATA();
                     break;
                 default:
@@ -169,6 +182,7 @@ public class ControllerActivity extends Activity implements SensorEventListener 
                 Log.d(TAG,"[FALSE] - hasConnectedApi Wearaable API");
                 return;
             }
+            Log.d(TAG, "send_TYPE_DATA");
 
             NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
             for (Node node : nodes.getNodes()) {
@@ -190,6 +204,13 @@ public class ControllerActivity extends Activity implements SensorEventListener 
         }
 
         private void sendingMessage() {
+
+
+            if (!mGoogleApiClient.hasConnectedApi(Wearable.API)) {
+                Log.d(TAG, "[FALSE] - hasConnectedApi Wearaable API");
+                return;
+            }
+            Log.d(TAG, "send_TYPE_MSSG");
 
             NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
             for (Node node : nodes.getNodes()) {

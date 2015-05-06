@@ -13,18 +13,11 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.Wearable;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
-import static android.os.Environment.getExternalStorageDirectory;
 
 public class MonitoringActivity extends Activity {
 
@@ -79,6 +72,20 @@ public class MonitoringActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+//        if (!mResolvingError) {  // more about this later //TODO
+        mGoogleApiClient.connect();
+//        }
+    }
+
+    @Override
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
+    }
+
     private void setUpView() {
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
@@ -92,14 +99,14 @@ public class MonitoringActivity extends Activity {
                         @Override
                         public void onClick(View view) {
 
-                            if (isStart == false) {
+                            if (!isStart) {
                                 SensingASAService.startActionSensing(getApplicationContext(),1000*1000);
                                 mTagButton.setText("STOP");
                                 mTagButton.setBackgroundColor(Color.DKGRAY);
                                 mTopLayout.setBackgroundColor(Color.BLACK);
                                 isStart = true;
 
-                            } else if (isStart == true) {
+                            } else if (isStart) {
                                 SensingASAService.stopActionSensing(getApplicationContext());
                                 mTagButton.setText("START");
                                 mTopLayout.setBackgroundColor(Color.BLUE);
