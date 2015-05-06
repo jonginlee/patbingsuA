@@ -1,8 +1,8 @@
 package kr.co.jonginlee.patbingsua;
 
 import android.app.IntentService;
-import android.content.Intent;
 import android.content.Context;
+import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -13,7 +13,6 @@ import android.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -49,13 +48,13 @@ public class SensingASAService extends IntentService implements SensorEventListe
     private PowerManager.WakeLock wakelock = null;
 
     private int tagNum = 1;
-    private CountDownLatch latch;
-
 
 
 
     @Override
     public void onCreate() {
+        Log.d(TAG, "onCreate(SensingASAService)");
+
 
         mSensorManager = ((SensorManager) getSystemService(SENSOR_SERVICE));
         mCompassSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
@@ -79,13 +78,16 @@ public class SensingASAService extends IntentService implements SensorEventListe
         }
 
         super.onCreate();
+        Log.d(TAG, "onCreate(SensingASAService) - pass");
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         if (intent != null) {
-            Log.d(TAG, "start IntentService 2");
-        }
+            Log.d(TAG, "onHandleIntent(SensingASAService) - not null");
+        } else
+            Log.d(TAG, "onHandleIntent(SensingASAService) - null");
+
     }
 
     /**
@@ -109,15 +111,17 @@ public class SensingASAService extends IntentService implements SensorEventListe
 
 
     private void freeRegisters() {
+
 //        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
         mSensorManager.unregisterListener(this, this.mCompassSensor);
-        mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
-//        mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
+//        mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
+        mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
         mSensorManager.unregisterListener(this, this.mGyroSensor);
         mSensorManager.unregisterListener(this, this.mOrientationSensor);
 
 //        stopAudioCapture();
 //        mSensorManager.unregisterListener(this, this.mRotationVector);
+        Log.d(TAG, "freeRegisters(SensingASAService) - pass");
 
     }
 
@@ -134,6 +138,8 @@ public class SensingASAService extends IntentService implements SensorEventListe
                 e.printStackTrace();
             }
         }
+        Log.d(TAG, "onDestroy(SensingASAService) - pass");
+
 
         super.onDestroy();
     }
@@ -186,41 +192,41 @@ public class SensingASAService extends IntentService implements SensorEventListe
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "is - onStartCommand");
+        Log.d(TAG, "onStartCommand(SensingASAService)");
 //        super.onStartCommand(intent, flags, startId);
 
         PowerManager mgr = (PowerManager) getApplication().getSystemService(Context.POWER_SERVICE);
         wakelock = mgr.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakeLock");
         wakelock.acquire();
         String action = intent.getAction();
-        int interval = intent.getIntExtra(DELAY_INTERVAL, 500*1000);
+        int interval = intent.getIntExtra(DELAY_INTERVAL, 50 * 1000);
         if (ACTION_SENSING.equals(action)) {
-            Log.d(TAG, "ACTION_SENSING");
+            Log.d(TAG, "onStartCommand(SensingASAService) - ACTION_SENSING - pass");
             registerSensor(interval);
         }
 //        else if(ACTION_SAMPLING_CH.equals(action)){
 //            Log.d(TAG, "ACTION_SAMPLING_CH");
 //            registerSensor(20 * 1000);
 //        }
-        Log.d(TAG, "pass");
 
 
         return START_STICKY;
     }
 
     public void registerSensor(int interval) {
+        Log.d(TAG, "registerSensor(SensingASAService) - interval : " + interval);
 
 //        latch = new CountDownLatch(1);
 
         if(mSensorManager.registerListener(this, mCompassSensor,interval)==false){
             Log.d(TAG, "batch is not supported : " + "compass");
         }
-//        if(mSensorManager.registerListener(this, mAccelerometerSensor,interval)==false){
-//            Log.d(TAG,"batch is not supported : "+"accel");
-//        }
-        if(mSensorManager.registerListener(this, mLinearAccelSensor,interval)==false){
-            Log.d(TAG, "batch is not supported : " + "linearaccel");
+        if (mSensorManager.registerListener(this, mAccelerometerSensor, interval) == false) {
+            Log.d(TAG, "registerSensor(SensingASAService) - fail , batch is not supported : " + "accel");
         }
+//        if(mSensorManager.registerListener(this, mLinearAccelSensor,interval)==false){
+//            Log.d(TAG, "batch is not supported : " + "linearaccel");
+//        }
         if(mSensorManager.registerListener(this, mGyroSensor,interval)==false){
             Log.d(TAG,"batch is not supported : "+"gyro");
         }
@@ -241,52 +247,47 @@ public class SensingASAService extends IntentService implements SensorEventListe
         SensorEvent sensorEvent = event;
 
         try {
-//                latch.await();
 
             if (sensorTimeReference == 0l) {
                 sensorTimeReference = sensorEvent.timestamp;
             }
 
-//                Log.d(TAG, "SENSING FROM SERVICE");
             // set event timestamp to current time in milliseconds
 
             long timeInMillis =
                     Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
 
-            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
+//            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
 
 
             if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
 //                    Log.d(TAG, "Magnet : " +"x "+sensorEvent.values[0]+", y "+sensorEvent.values[1]+", z "+sensorEvent.values[2]+", milli"+timeInMillis);
-                Log.d(TAG, "is - MAGNET : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
+                Log.d(TAG, "onSensorChanged(SensingASAService) - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
 
                 byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+"\r\n").getBytes();
 
                 mfos.write(data);
+            } else if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                Log.d(TAG, "onSensorChanged(SensingASAService) - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                mfos.write(data);
             }
-            else
-//                if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-//                    Log.d(TAG, "is - ACCEL : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
-//
-//                    byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
-//                    mfos.write(data);
-//               }
 //                else
-                if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-                    //    gravSensorVals = lowPass(sensorEvent.values.clone(), gravSensorVals);
-                    Log.d(TAG, "is - TYPE_LINEAR_ACCELERATION : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
-                    byte[] data = new String (tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
-                    mfos.write(data);
-                }
+//                if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+//                    //    gravSensorVals = lowPass(sensorEvent.values.clone(), gravSensorVals);
+//                    Log.d(TAG, "is - TYPE_LINEAR_ACCELERATION : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
+//                    byte[] data = new String (tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+//                    mfos.write(data);
+//                }
                 else
                 if (sensorEvent.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-                    Log.d(TAG, "is - GYRO : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
+                    Log.d(TAG, "onSensorChanged(SensingASAService) - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
 
                     byte[] data = new String(tagNum + ",Gyro," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," +  timeInMillis + "\r\n").getBytes();
                     mfos.write(data);
                 }
                 else if (sensorEvent.sensor.getType() == Sensor.TYPE_ORIENTATION) {
-                    Log.d(TAG, "is - TYPE_ORIENTATION : " + "x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli" + timeInMillis);
+                    Log.d(TAG, "onSensorChanged(SensingASAService) - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                     byte[] data = new String (tagNum+",orientation," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+"\r\n").getBytes();
                     mfos.write(data);
                 }
@@ -301,6 +302,8 @@ public class SensingASAService extends IntentService implements SensorEventListe
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        Log.d(TAG, "onAccuracyChanged(SensingASAService) - " + sensor.getName() + ", accuracy - " + accuracy);
+
 
     }
 
