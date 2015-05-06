@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:id="@+id/topLayout"
+    android:background="@android:color/holo_blue_dark"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    tools:context=".MyActivity">
+
+
+    <Button
+        android:id="@+id/tag"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:textColor="@android:color/black"
+        android:textSize="25dp"
+        android:text="Tag1 Start! " android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+        />
+
+    <TextView
+        android:id="@+id/comment1"
+        android:text="comment1"
+        android:textColor="@android:color/white"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"/>
+
+    <Button
+        android:id="@+id/sendmsg"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:textColor="@android:color/black"
+        android:textSize="25dp"
+        android:text="Send Msg " android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+        />
+    <TextView
+        android:paddingTop="10dp"
+        android:id="@+id/rssiresult"
+        android:text="rssi result"
+        android:textColor="@android:color/white"
+        android:textSize="20dip"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>
