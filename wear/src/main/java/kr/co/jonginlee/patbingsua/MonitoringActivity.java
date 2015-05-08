@@ -75,26 +75,6 @@ public class MonitoringActivity extends Activity {
         }
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        Log.d(TAG, "onStart(MonitoringActivity)");
-
-//        if (!mResolvingError) {  // more about this later //TODO
-        mGoogleApiClient.connect();
-        Log.d(TAG, "onStart(MonitoringActivity) - pass");
-
-//        }
-    }
-
-    @Override
-    protected void onStop() {
-        Log.d(TAG, "onStop(MonitoringActivity)");
-        mGoogleApiClient.disconnect();
-        super.onStop();
-        Log.d(TAG, "onStop(MonitoringActivity) - pass");
-    }
-
     private void setUpView() {
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
@@ -108,7 +88,7 @@ public class MonitoringActivity extends Activity {
                         @Override
                         public void onClick(View view) {
 
-                            if (!isStart) {
+                            if (isStart == false) {
                                 SensingASAService.startActionSensing(getApplicationContext(), 20 * 1000);
                                 mTagButton.setText("STOP");
                                 mTagButton.setBackgroundColor(Color.DKGRAY);
