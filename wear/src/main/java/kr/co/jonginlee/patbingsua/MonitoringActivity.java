@@ -45,7 +45,7 @@ public class MonitoringActivity extends Activity {
 
     private Button mTagButton;
     private boolean isStart = false;
-    private LinearLayout mTopLayout;
+    private static LinearLayout mTopLayout;
     private GoogleApiClient mGoogleApiClient;
     private static int SENSOR_TYPE_TILT_DETECTOR = 65536;
 
@@ -113,7 +113,7 @@ public class MonitoringActivity extends Activity {
 
     public void handleRecordButtonClick(View view) {
         if(mAudioRecorder!=null)
-            mAudioRecorder.startAudioCapture();
+            mAudioRecorder.startAudioCapture(null);
     }
 
     public void handleStopButtonClick(View view) {
@@ -415,6 +415,15 @@ public class MonitoringActivity extends Activity {
         }
     }
 
+
+    public static void setBackgroundColor(int color)
+    {
+        if(mTopLayout!=null)
+        {
+            mTopLayout.setBackgroundColor(color);
+        }
+
+    }
     private void setUpView() {
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
 
@@ -432,7 +441,7 @@ public class MonitoringActivity extends Activity {
                         public void onClick(View view) {
 
                             if (isStart == false) {
-                                SensorService.startActionSensing(getApplicationContext(), 50 * 1000,"data_watch_intentservice"+mTagNum+".txt");
+                                SensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice"+mTagNum);
                                 mTagButton.setText("STOP");
 //                                mTagButton.setBackgroundColor(Color.DKGRAY);
                                 mTopLayout.setBackgroundColor(Color.BLACK);

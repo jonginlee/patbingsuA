@@ -3,18 +3,24 @@ package kr.co.jonginlee.patbingsua;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorEventListener2;
 import android.hardware.SensorManager;
 import android.os.PowerManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -37,7 +43,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
     private static final int STATUS_SENSING_CHECKING = 0x0001;
     private static final int STATUS_SENSING_CONTINUOUS = 0x0002;
-
+    private int audioTag = 0;
 
     private Sensor mAccelerometerSensor = null;
     private Sensor mLinearAccelSensor = null;
@@ -48,15 +54,19 @@ public class SensorService extends IntentService implements SensorEventListener2
 
     private static final String TAG = "WearWatch";
     private long sensorTimeReference = 0l;
+
     private FileOutputStream mFos = null;
     private File mfile = null;
     private String mfilename = null;
-    private PowerManager.WakeLock wakelock = null;
-
-
-
-    private int tagNum = 1;
     private DataOutputStream mOutFile;
+
+    private File mfile_trigger = null;
+    private FileOutputStream mFos_trigger = null;
+    private DataOutputStream mOutFile_trigger;
+
+
+    private PowerManager.WakeLock wakelock = null;
+    private int tagNum = 1;
     private double mPrevAccelValue = 0;
     private double mThreshold = 0.8;
     private int mSensingState = STATUS_SENSING_CHECKING;
@@ -64,6 +74,8 @@ public class SensorService extends IntentService implements SensorEventListener2
     private int mBatchDelay = 0;
     private double[] mMovBuffer = new double[50];
     private int mMovBufferIndex = 0;
+    private AudioRecorderAsWave mAudioRecorder;
+
 
 
     @Override
@@ -77,6 +89,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         mLinearAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         mGyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         mOrientationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        mAudioRecorder = new AudioRecorderAsWave();
 
         super.onCreate();
         Log.d(TAG, "onCreate(SensorService) - pass");
@@ -117,11 +130,11 @@ public class SensorService extends IntentService implements SensorEventListener2
             Log.d(TAG, "flush FIFO queue - success");
 
 //        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
-//        mSensorManager.unregisterListener(this, this.mCompassSensor);
+        mSensorManager.unregisterListener(this, this.mCompassSensor);
         mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
-//        mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
-//        mSensorManager.unregisterListener(this, this.mGyroSensor);
-//        mSensorManager.unregisterListener(this, this.mOrientationSensor);
+        mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
+        mSensorManager.unregisterListener(this, this.mGyroSensor);
+        mSensorManager.unregisterListener(this, this.mOrientationSensor);
 
 //        stopAudioCapture();
 //        mSensorManager.unregisterListener(this, this.mRotationVector);
@@ -133,6 +146,7 @@ public class SensorService extends IntentService implements SensorEventListener2
     public void onDestroy() {
         wakelock.release();
         freeRegisters();
+        mSensorManager.unregisterListener(mListener2, this.mLinearAccelSensor);
         if(mFos !=null){
             try {
                 mOutFile.flush();
@@ -143,8 +157,18 @@ public class SensorService extends IntentService implements SensorEventListener2
                 e.printStackTrace();
             }
         }
-        Log.d(TAG, "onDestroy(SensorService) - pass");
 
+        if(mFos_trigger !=null){
+            try {
+                mOutFile_trigger.flush();
+                mOutFile_trigger.close();
+                mFos_trigger.flush();
+                mFos_trigger.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        Log.d(TAG, "onDestroy(SensorService) - pass");
 
         super.onDestroy();
     }
@@ -195,6 +219,62 @@ public class SensorService extends IntentService implements SensorEventListener2
 //        }
 //    }
 
+
+    private long sensorTimeReference2 = 0;
+
+    private final SensorEventListener mListener2 = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent sensorEvent) {
+
+            if (sensorTimeReference2 == 0l)
+                sensorTimeReference2 = sensorEvent.timestamp;
+
+            long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference2) / 1000000.0);
+
+            if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+
+                if (timeInMillis > 1000)
+                    if(!movBuffering(sensorEvent.values[0] + sensorEvent.values[1] + sensorEvent.values[2], 5)){
+                        boolean isMoving = isMovement();
+
+                        if(isMoving)
+                            mStateTimeReference = timeInMillis;
+
+                        if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
+                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000);
+                        else if((timeInMillis - mStateTimeReference)>5000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
+                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0);
+                    }
+
+                Log.d(TAG, " * trigger sensor - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                try {
+                    mOutFile_trigger.write(data);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            Log.d(TAG, " * triger sensor - " + sensor.getName() + ", accuracy - " + accuracy);
+            if(SensorManager.SENSOR_STATUS_ACCURACY_HIGH == accuracy){
+                Log.d(TAG, "accuracy - high");
+            }else if(SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM == accuracy){
+                Log.d(TAG, "accuracy - medium");
+            }else if(SensorManager.SENSOR_STATUS_ACCURACY_LOW == accuracy){
+                Log.d(TAG, "accuracy - low");
+            }else if(SensorManager.SENSOR_STATUS_NO_CONTACT == accuracy){
+                Log.d(TAG, "accuracy - no contact");
+            }else if(SensorManager.SENSOR_STATUS_UNRELIABLE == accuracy){
+                Log.d(TAG, "accuracy - unreliable");
+            }
+        }
+    };
+
+
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand(SensorService)");
@@ -203,7 +283,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         mfilename = intent.getStringExtra(RECORDED_FILENAME);
 
         if ((mfile == null) && (mfilename !=null)) {
-            mfile = new File(getExternalStorageDirectory(), mfilename);
+            mfile = new File(getExternalStorageDirectory(), mfilename+".txt");
             try {
                 mFos = new FileOutputStream(mfile);
                 mOutFile = new DataOutputStream(new BufferedOutputStream(mFos));
@@ -215,17 +295,31 @@ public class SensorService extends IntentService implements SensorEventListener2
             }
         }
 
+        if ((mfile_trigger == null) && (mfilename !=null)) {
+            mfile_trigger = new File(getExternalStorageDirectory(), mfilename+"_triger_sensor.txt");
+            try {
+                mFos_trigger = new FileOutputStream(mfile_trigger);
+                mOutFile_trigger = new DataOutputStream(new BufferedOutputStream(mFos_trigger));
+                byte[] data = new String("tag, type, x, y, z, time" + "\r\n").getBytes();
+                mOutFile_trigger.write(data);
+                mOutFile_trigger.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
 
         PowerManager mgr = (PowerManager) getApplication().getSystemService(Context.POWER_SERVICE);
         wakelock = mgr.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakeLock");
         wakelock.acquire();
+
         String action = intent.getAction();
         int interval = intent.getIntExtra(DELAY_INTERVAL, 500 * 1000);
         if (ACTION_SENSING.equals(action)) {
             Log.d(TAG, "onStartCommand(SensorService) - ACTION_SENSING - pass");
 //            registerSensor(interval);
-            if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, mBatchDelay) == false) {
-                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ mBatchDelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
+            if (mSensorManager.registerListener(mListener2 , mLinearAccelSensor, interval, 0) == false) {
+                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ 0 +", "+mLinearAccelSensor.getFifoMaxEventCount());
             }
         }
 //        else if(ACTION_SAMPLING_CH.equals(action)){
@@ -237,42 +331,39 @@ public class SensorService extends IntentService implements SensorEventListener2
         return START_STICKY;
     }
 
-    public void registerSensor(int interval) {
+    public void registerSensor(int interval, int batchDelay) {
         Log.d(TAG, "registerSensor(SensorService) - interval : " + interval);
-
+        mBatchDelay = batchDelay;
 //        latch = new CountDownLatch(1);
 //         mBatchDelay = 5*1000*1000;
-        mBatchDelay = 8*1000*1000;
+//        mBatchDelay = 8*1000*1000;
 //        mBatchDelay = 0;
+        if (mSensorManager.registerListener(this, mAccelerometerSensor, interval, mBatchDelay)) {
+            Log.d(TAG, "batch is supported : " + "accel cnt: "+ mBatchDelay +", "+mAccelerometerSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mAccelerometerSensor.getName());
 
-//
-//        if (mSensorManager.registerListener(this, mAccelerometerSensor, interval, mBatchDelay)) {
-//            Log.d(TAG, "batch is supported : " + "accel cnt: "+ mBatchDelay +", "+mAccelerometerSensor.getFifoReservedEventCount());
-//        }else
-//            Log.d(TAG, "batch is not supported "+mAccelerometerSensor.getName());
-//
-//        if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
-//            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
-//        }else
-//            Log.d(TAG, "batch is not supported "+mGyroSensor.getName());
-//
-//        if(mSensorManager.registerListener(this, mCompassSensor, interval, mBatchDelay)){
-//            Log.d(TAG, "batch is supported : " + "compass cnt: "+ mBatchDelay +", "+mCompassSensor.getFifoReservedEventCount());
-//        }else
-//            Log.d(TAG, "batch is not supported "+mCompassSensor.getName());
+        if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
+            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mGyroSensor.getName());
 
-//        if(mSensorManager.registerListener(this, ))
-
+        if(mSensorManager.registerListener(this, mCompassSensor, interval, mBatchDelay)){
+            Log.d(TAG, "batch is supported : " + "compass cnt: "+ mBatchDelay +", "+mCompassSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mCompassSensor.getName());
 
         if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, mBatchDelay) == false) {
             Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ mBatchDelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
-        }
-//
-//        if(mSensorManager.registerListener(this, mOrientationSensor,interval, mBatchDelay)==false){
-//            Log.d(TAG,"batch is not supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
-//        }
-////        Log.d(TAG, "start register sensors");
+        }else
+            Log.d(TAG, "batch is not supported "+mLinearAccelSensor.getName());
 
+        if(mSensorManager.registerListener(this, mOrientationSensor,interval, mBatchDelay)==false){
+            Log.d(TAG,"batch is not supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mOrientationSensor.getName());
+
+        Log.d(TAG, "start register sensors");
 
 //        latch.countDown();
     }
@@ -280,82 +371,29 @@ public class SensorService extends IntentService implements SensorEventListener2
 
 
     @Override
-    public void onSensorChanged(SensorEvent event) {
+    public void onSensorChanged(SensorEvent sensorEvent) {
         // grab the values and timestamp
-        SensorEvent sensorEvent = event;
-
         try {
-
             if (sensorTimeReference == 0l) {
                 sensorTimeReference = sensorEvent.timestamp;
             }
-
             // set event timestamp to current time in milliseconds
 
-            long timeInMillis =
-                    Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
+            long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
 
 //            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
 
-
             if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
-
-//                    Log.d(TAG, "Magnet : " +"x "+sensorEvent.values[0]+", y "+sensorEvent.values[1]+", z "+sensorEvent.values[2]+", milli"+timeInMillis);
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-
                 byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+"\r\n").getBytes();
                 mOutFile.write(data);
             } else
             if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-                //    gravSensorVals = lowPass(sensorEvent.values.clone(), gravSensorVals);
-                //                if(mSensingState == 1)
-//                if( mPrevAccelValue == 0)
-//                    mPrevAccelValue = Math.sqrt(Math.pow(sensorEvent.values[0],2) + Math.pow(sensorEvent.values[1],2) + Math.pow(sensorEvent.values[2],2));
-//                double currentValue = Math.sqrt(Math.pow(sensorEvent.values[0],2) + Math.pow(sensorEvent.values[1],2) + Math.pow(sensorEvent.values[2],2));
-
-//                Log.d(TAG, "accel - " + Math.abs(mPrevAccelValue - currentValue));
-
-                if (timeInMillis > 1000)
-                    if(!movBuffering(sensorEvent.values[0] + sensorEvent.values[1] + sensorEvent.values[2], 5)){
-                        boolean isMoving = isMovement();
-                        if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS);
-                        else if(!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS)
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING);
-                    }
-
-//                if((mSensingState==STATUS_SENSING_CHECKING) && (Math.abs(mPrevAccelValue - currentValue)>mThreshold)){
-//                    Log.d(TAG, "checking..");
-//                    if(mStateTimeReference == 0 ) {
-//                        mStateTimeReference = timeInMillis;
-//                    }
-//                    if(timeInMillis - mStateTimeReference > 100 ){
-//                        Log.d(TAG, "timeRef..");
-//                        doChangeSamplingRate(false);
-//                    }
-//                }
-//                else
-//                    mStateTimeReference = 0;
-//
-//                if((mSensingState==STATUS_SENSING_CONTINUOUS) && (Math.abs(mPrevAccelValue - currentValue)<mThreshold)){
-//                    if(mStateTimeReference == 0 )
-//                        mStateTimeReference = timeInMillis;
-//                    if(timeInMillis - mStateTimeReference > 3000 ){
-//                        doChangeSamplingRate(true);
-//                    }
-//                    Log.d(TAG, "station..");
-//                }
-//                else
-//                    mStateTimeReference = 0;
-//
-//                mPrevAccelValue = currentValue;
-
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
                 mOutFile.write(data);
@@ -415,9 +453,9 @@ public class SensorService extends IntentService implements SensorEventListener2
             return true;
     }
 
-    private void doChangeSamplingRate(int interval, int status) {
+    private void doChangeSamplingRate(int interval, int status, int batchdelay) {
 
-
+        Log.d(TAG, "(in) doChangeSamplingRate");
 //        if(mSensingState == STATUS_SENSING_CHECKING)
 //        {
 //            mBatchDelay = 0;
@@ -430,37 +468,43 @@ public class SensorService extends IntentService implements SensorEventListener2
         if(status == STATUS_SENSING_CONTINUOUS)
         {
             mSensingState = status;
-            freeRegisters();
-            mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
-            mBatchDelay = 1*1000*1000;
-            registerSensor(interval);
-        }
-        //        registerSensor((int) interval);
+//            mSensorManager.unregisterListener(mListener2, this.mLinearAccelSensor);
 
-    }
+            registerSensor(interval, 2 * 1000 * 1000);
+//            if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, batchdelay) == false) {
+//                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
+//            }
 
-    private void doChangeSamplingRate(boolean checking) {
-        int interval = 0;
-        freeRegisters();
-
-        if(checking){
-            interval = 100*1000;
-            mSensingState = STATUS_SENSING_CHECKING;
-            if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, mBatchDelay) == false) {
-                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ mBatchDelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
+            if(mAudioRecorder!=null) {
+                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
+                Date date = new Date();
+                Log.d(TAG,"audio_start_time "+dateFormat.format(date));
+                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
+                audioTag++;
             }
 
-            Log.d(TAG, "STATUS_SENSING_CHECKING");
-        }else{
-//            interval =  20*1000;
-//            mSensingState = STATUS_SENSING_CONTINUOUS;
-//            registerSensor(interval);
-            Log.d(TAG, "STATUS_SENSING_CONTINUOS");
+            Log.d(TAG," STATUS --> [CONTINUOUS] ");
+            Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
+            MonitoringActivity.setBackgroundColor(Color.RED);
+
         }
+        else if(status == STATUS_SENSING_CHECKING)
+        {
+            mSensingState = status;
+            freeRegisters();
+            if(mAudioRecorder!=null)
+                mAudioRecorder.stopAudioCapture();
 
+//            if (mSensorManager.registerListener(mListener2, mLinearAccelSensor, interval, batchdelay) == false) {
+//                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
+//            }
+            Log.d(TAG," STATUS --> [CHECKING] ");
+            Toast.makeText(getApplicationContext(), "STATUS --> [CHECKING]", Toast.LENGTH_SHORT).show();
+            MonitoringActivity.setBackgroundColor(Color.BLACK);
 
-
+        }
     }
+
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {

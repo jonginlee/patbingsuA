@@ -20,7 +20,7 @@ import static android.os.Environment.getExternalStorageDirectory;
 public class AudioRecorderAsWave {
 
     private static final int SPEECH_REQUEST_CODE = 1;
-    private static  int RECORDER_SAMPLERATE = 22050;
+    private static  int RECORDER_SAMPLERATE = 0;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
     private static final String TAG = "WearWatch";
@@ -45,7 +45,7 @@ public class AudioRecorderAsWave {
 
     public int getValidSampleRates() {
         int samplingrate = -1;
-        for (int rate : new int[] {8000, 22050,16000, 11025, 44100,8000}) {  // add the rates you wish to check against
+        for (int rate : new int[] { 8000, 22050,16000, 11025, 44100,8000}) {  // add the rates you wish to check against
             int bufferSize = AudioRecord.getMinBufferSize(rate, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
             if (bufferSize > 0) {
                 // buffer size is valid, Sample rate supported
@@ -57,11 +57,40 @@ public class AudioRecorderAsWave {
         return samplingrate;
     }
 
-    public void startAudioCapture() {
+//    private static int[] mSampleRates = new int[] { 8000, 11025, 22050, 44100 };
+//    public AudioRecord findAudioRecord() {
+//        for (int rate : mSampleRates) {
+//            for (short audioFormat : new short[] { AudioFormat.ENCODING_PCM_8BIT, AudioFormat.ENCODING_PCM_16BIT }) {
+//                for (short channelConfig : new short[] { AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_STEREO }) {
+//                    try {
+//                        Log.d(C.TAG, "Attempting rate " + rate + "Hz, bits: " + audioFormat + ", channel: "
+//                                + channelConfig);
+//                        int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
+//
+//                        if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
+//                            // check if we can instantiate and have a success
+//                            AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, rate, channelConfig, audioFormat, bufferSize);
+//
+//                            if (recorder.getState() == AudioRecord.STATE_INITIALIZED)
+//                                return recorder;
+//                        }
+//                    } catch (Exception e) {
+//                        Log.e(C.TAG, rate + "Exception, keep trying.",e);
+//                    }
+//                }
+//            }
+//        }
+//        return null;
+//    }
+
+    public void startAudioCapture(String filename) {
+        if(filename!=null)
+           RECORDED_FILE_NAME = filename;
+
         RECORDER_SAMPLERATE = getValidSampleRates();
         bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
         Log.d(TAG, "Starting audio capture" + " buffer size (" + bufferSize + ")");
-        bufferSize = bufferSize*2;
+        bufferSize = bufferSize*10;
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING, bufferSize);
         byte[] header = new byte[44];
 
@@ -79,6 +108,13 @@ public class AudioRecorderAsWave {
 
         if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
             recorder.startRecording();
+//            if(recorder.getRecordingState() == AudioRecord.RECORDSTATE_STOPPED){
+//                Log.v(TAG, "startrecording again!!");
+//                recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING, bufferSize);
+//                if (recorder.getState() == AudioRecord.STATE_INITIALIZED)
+//                    recorder.startRecording();
+//            }
+
             isRecording = true;
             Log.v(TAG, "Successfully started recording " + bufferSize + " byte");
             mSizeOfRecData = 0;
@@ -93,8 +129,6 @@ public class AudioRecorderAsWave {
         } else {
             Log.v(TAG, "Failed to started recording");
         }
-
-
     }
 
     private void savingRawAudioData() {
@@ -103,7 +137,10 @@ public class AudioRecorderAsWave {
         Log.v(TAG, "enter savingRawAudioData thread");
         while(isRecording) {
             read = recorder.read(data, 0, bufferSize);
-
+            if(read<0){
+                Log.v(TAG, "recording state : "+ recorder.getRecordingState());
+                Log.v(TAG, "recorder state : "+recorder.getState());
+            }
             if(AudioRecord.ERROR_INVALID_OPERATION != read) {
                 Log.v(TAG, "Successfully read " + data.length + " bytes of audio , read "+read);
                 for(int i = 0; i < read;i++) {
@@ -135,7 +172,6 @@ public class AudioRecorderAsWave {
             recorder.release();
 
             try {
-
                 outFile.flush();
                 outFile.close();
                 mFos.flush();
