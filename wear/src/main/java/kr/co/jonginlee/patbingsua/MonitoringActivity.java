@@ -323,7 +323,7 @@ public class MonitoringActivity extends Activity {
         FileOutputStream mfos = null;
 
         mfos = new FileOutputStream(mfile);
-        byte[] data = new String("sensor_name, type, vendor(moduleVer), maximumRange, delaymin~max(microsec), power(mA), resolution, FIFO_Rserved, FIFO_max"+"\r\n").getBytes();
+        byte[] data = ("sensor_name, type, vendor(moduleVer), maximumRange, delaymin~max(microsec), power(mA), resolution, FIFO_Rserved, FIFO_max" + "\r\n").getBytes();
         mfos.write(data);
 
 
@@ -334,10 +334,10 @@ public class MonitoringActivity extends Activity {
             Sensor sensor = sensorList.get(i);
 //            Log.d(TAG, sensor.getName()+" FIFO_event_count : "+sensor.getFifoMaxEventCount() +" , "+sensor.getType());
 //            byte[] data = new String("sensor_name, type, vendor(moduleVer), maximumRange, delaymin~max(microsec), power(mA), resolution, FIFO_Rserved, FIFO_max"+"\r\n").getBytes();
-            data = new String(sensor.getName() + "," + sensor.getType() + "," + sensor.getVendor() + "(" + sensor.getVersion() + ")," +
+            data = (sensor.getName() + "," + sensor.getType() + "," + sensor.getVendor() + "(" + sensor.getVersion() + ")," +
                     sensor.getMaximumRange() + "," +
-                    sensor.getMinDelay()+"~"+sensor.getMaxDelay() + "," + sensor.getPower() + "," + sensor.getResolution() +
-                    ","+sensor.getFifoReservedEventCount() + "," + sensor.getFifoMaxEventCount() +"\r\n").getBytes();
+                    sensor.getMinDelay() + "~" + sensor.getMaxDelay() + "," + sensor.getPower() + "," + sensor.getResolution() +
+                    "," + sensor.getFifoReservedEventCount() + "," + sensor.getFifoMaxEventCount() + "\r\n").getBytes();
             mfos.write(data);
 
             Log.d(TAG, sensor.getName() + "\t" + sensor.getType() + "\t" + sensor.getVendor() + "\t" + sensor.getVersion() + "\t" +
