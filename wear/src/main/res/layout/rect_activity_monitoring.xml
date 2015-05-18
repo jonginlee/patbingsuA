@@ -21,26 +21,6 @@
         android:textSize="25dp"
         android:text="START" android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
         />
-    <TextView
-        android:text="# of scratching"
-        android:layout_width="wrap_content"
-        android:textSize="13dp"
-        android:visibility="gone"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        />
-    <TextView
-        android:id="@+id/scratchNum"
-        android:text="#"
-        android:textColor="@color/white"
-        android:layout_width="wrap_content"
-        android:textSize="25dp"
-        android:visibility="gone"
-        android:textStyle="bold"
-        android:layout_marginBottom="3pt"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        />
 
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -48,23 +28,24 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center_horizontal"
         >
 
         <Button
             android:id="@+id/button1"
-            android:layout_width="50dp"
+            android:layout_width="60dp"
             android:layout_height="wrap_content"
             android:onClick="handleRecordButtonClick"
-            android:visibility="gone"
+            android:textSize="20pt"
+            android:layout_marginRight="10pt"
             android:text="s" />
 
         <Button
             android:id="@+id/button2"
-            android:layout_width="50dp"
+            android:layout_width="60dp"
             android:layout_height="wrap_content"
             android:onClick="handleStopButtonClick"
-            android:visibility="gone"
-
+            android:textSize="20pt"
             android:text="t" />
 
         <Button

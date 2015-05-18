@@ -33,7 +33,7 @@
         </activity>
 
         <service
-            android:name=".SensingASAService"
+            android:name=".SensorService"
             android:exported="false" >
         </service>
     </application>
