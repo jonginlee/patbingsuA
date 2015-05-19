@@ -165,6 +165,9 @@ public class AudioRecorderAsWave {
     public void stopAudioCapture() {
         Log.v(TAG, "Stop audio capture");
 
+        if(recorder==null)
+            Log.d(TAG, "recoder is null");
+
         if(recorder.getState() != AudioRecord.STATE_UNINITIALIZED ){
             recorder.stop();
 

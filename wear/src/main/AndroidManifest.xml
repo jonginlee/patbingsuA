@@ -36,6 +36,7 @@
             android:name=".SensorService"
             android:exported="false" >
         </service>
+
     </application>
 
 </manifest>

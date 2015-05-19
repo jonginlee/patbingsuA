@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/toplayout"
+    android:orientation="vertical"
+    android:background="@color/blue"
+    tools:context=".MyActivity"
+    tools:deviceIds="wear_square" android:padding="12dp"
+    android:weightSum="1">
+
+    <Button
+        android:id="@+id/tag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6pt"
+        android:padding="5pt"
+        android:background="@color/white"
+        android:textColor="@color/black"
+        android:textSize="25dp"
+        android:text="START" android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+        />
+
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_horizontal"
+        >
+
+        <Button
+            android:id="@+id/button1"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:onClick="handleRecordButtonClick"
+            android:textSize="20pt"
+            android:layout_marginRight="10pt"
+            android:text="s" />
+
+        <Button
+            android:id="@+id/button2"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:onClick="handleStopButtonClick"
+            android:textSize="20pt"
+            android:text="t" />
+
+        <Button
+            android:id="@+id/button3"
+            android:layout_width="50dp"
+            android:layout_height="wrap_content"
+            android:onClick="play"
+            android:visibility="gone"
+
+            android:text="p" />
+        <Button
+            android:id="@+id/upload"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:textColor="@color/black"
+            android:visibility="gone"
+            android:textSize="10dp"
+            android:layout_margin="3pt"
+            android:padding="3pt"
+            android:text="Analyzing" android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+            />
+        <Button
+            android:id="@+id/body"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="3pt"
+            android:visibility="gone"
+            android:background="@color/white"
+            android:textColor="@color/black"
+            android:textSize="10dp"
+            android:text=">>" android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+            />
+
+    </LinearLayout>
+
+
+    <TextView
+        android:id="@+id/comment1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"/>
+    <TextView
+        android:id="@+id/comment2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <TextView
+        android:id="@+id/comment3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+
+</LinearLayout>
