@@ -18,6 +18,9 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -28,14 +31,14 @@ import static android.os.Environment.getExternalStorageDirectory;
  * TODO: Customize class - update intent actions, extra parameters and static
  * helper methods.
  */
-public class SensorService extends IntentService implements SensorEventListener2 {
+public class TrigerSensorService extends IntentService implements SensorEventListener2 {
     // TODO: Rename actions, choose action names that describe tasks that this
     // IntentService can perform, e.g. ACTION_FETCH_NEW_ITEMS
-    private static final String ACTION_SENSING = "kr.co.jonginlee.patbingsua.action.sensing";
+    private static final String ACTION_SENSING = "kr.co.jonginlee.patbingsua.action.sensing2";
     private static final String ACTION_BAZ = "kr.co.jonginlee.patbingsua.action.BAZ";
 
     // TODO: Rename parameters
-    private static final String DELAY_INTERVAL = "kr.co.jonginlee.patbingsua.delay.interval";
+    private static final String DELAY_INTERVAL = "kr.co.jonginlee.patbingsua.delay.interval2";
     private static final String RECORDED_FILENAME = "kr.co.jonginlee.patbingsua.extra.PARAM2";
 
     private static final int STATUS_SENSING_CHECKING = 0x0001;
@@ -108,7 +111,7 @@ public class SensorService extends IntentService implements SensorEventListener2
      */
     // TODO: Customize helper method
     public static void startActionSensing(Context context, int interval, String filename) {
-        Intent intent = new Intent(context, SensorService.class);
+        Intent intent = new Intent(context, TrigerSensorService.class);
         intent.setAction(ACTION_SENSING);
         intent.putExtra(DELAY_INTERVAL, interval);
         intent.putExtra(RECORDED_FILENAME, filename);
@@ -135,7 +138,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
 //        stopAudioCapture();
 //        mSensorManager.unregisterListener(this, this.mRotationVector);
-        Log.d(TAG, "freeRegisters(SensorService) - pass");
+        Log.d(TAG, "freeRegisters(TrigerSensorService) - pass");
     }
 
 
@@ -143,7 +146,7 @@ public class SensorService extends IntentService implements SensorEventListener2
     public void onDestroy() {
         wakelock.release();
         freeRegisters();
-//        mSensorManager.unregisterListener(mListener2, this.mLinearAccelSensor);
+        mSensorManager.unregisterListener(mListener2, this.mLinearAccelSensor);
         if(mFos !=null){
             try {
                 mOutFile.flush();
@@ -165,7 +168,7 @@ public class SensorService extends IntentService implements SensorEventListener2
                 e.printStackTrace();
             }
         }
-        Log.d(TAG, "onDestroy(SensorService) - pass");
+        Log.d(TAG, "onDestroy(TrigerSensorService) - pass");
 
         super.onDestroy();
     }
@@ -173,7 +176,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
     // TODO: Customize helper method
     public static void stopActionSensing(Context context) {
-        Intent intent = new Intent(context, SensorService.class);
+        Intent intent = new Intent(context, TrigerSensorService.class);
         context.stopService(intent);
     }
 
@@ -193,8 +196,8 @@ public class SensorService extends IntentService implements SensorEventListener2
 //        context.startService(intent);
 //    }
 
-    public SensorService() {
-        super("SensorService");
+    public TrigerSensorService() {
+        super("TrigerSensorService");
     }
 
 //    @Override
@@ -275,35 +278,39 @@ public class SensorService extends IntentService implements SensorEventListener2
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand(SensorService)");
+        if(intent!=null){
+            Log.d(TAG,""+intent.getFlags());
+        }else
+            Log.d(TAG,""+"d???");
 //        super.onStartCommand(intent, flags, startId);
 
         mfilename = intent.getStringExtra(RECORDED_FILENAME);
-
-        if ((mfile == null) && (mfilename !=null)) {
-            mfile = new File(getExternalStorageDirectory(), mfilename+".txt");
-            try {
-                mFos = new FileOutputStream(mfile);
-                mOutFile = new DataOutputStream(new BufferedOutputStream(mFos));
-                byte[] data = new String("tag, type, x, y, z, time" + "\r\n").getBytes();
-                mOutFile.write(data);
-                mOutFile.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-//        if ((mfile_trigger == null) && (mfilename !=null)) {
-//            mfile_trigger = new File(getExternalStorageDirectory(), mfilename+"_triger_sensor.txt");
+//
+//        if ((mfile == null) && (mfilename !=null)) {
+//            mfile = new File(getExternalStorageDirectory(), mfilename+".txt");
 //            try {
-//                mFos_trigger = new FileOutputStream(mfile_trigger);
-//                mOutFile_trigger = new DataOutputStream(new BufferedOutputStream(mFos_trigger));
+//                mFos = new FileOutputStream(mfile);
+//                mOutFile = new DataOutputStream(new BufferedOutputStream(mFos));
 //                byte[] data = new String("tag, type, x, y, z, time" + "\r\n").getBytes();
-//                mOutFile_trigger.write(data);
-//                mOutFile_trigger.flush();
+//                mOutFile.write(data);
+//                mOutFile.flush();
 //            } catch (IOException e) {
 //                e.printStackTrace();
 //            }
 //        }
+
+        if ((mfile_trigger == null) && (mfilename !=null)) {
+            mfile_trigger = new File(getExternalStorageDirectory(), mfilename+"_triger_sensor.txt");
+            try {
+                mFos_trigger = new FileOutputStream(mfile_trigger);
+                mOutFile_trigger = new DataOutputStream(new BufferedOutputStream(mFos_trigger));
+                byte[] data = new String("tag, type, x, y, z, time" + "\r\n").getBytes();
+                mOutFile_trigger.write(data);
+                mOutFile_trigger.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
 
         PowerManager mgr = (PowerManager) getApplication().getSystemService(Context.POWER_SERVICE);
@@ -314,11 +321,10 @@ public class SensorService extends IntentService implements SensorEventListener2
         int interval = intent.getIntExtra(DELAY_INTERVAL, 500 * 1000);
         if (ACTION_SENSING.equals(action)) {
             Log.d(TAG, "onStartCommand(SensorService) - ACTION_SENSING - pass");
-//            if (mSensorManager.registerListener(mListener2 , mLinearAccelSensor, interval, 0) == false) {
-//                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ 0 +", "+mLinearAccelSensor.getFifoMaxEventCount());
-//            }
-            registerSensor(interval, 8*1000*1000);
-//            registerSensor(interval, 0);
+            if (mSensorManager.registerListener(mListener2 , mLinearAccelSensor, interval, 0) == false) {
+                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ 0 +", "+mLinearAccelSensor.getFifoMaxEventCount());
+            }
+//            registerSensor(20*1000, 8*1000*1000);
         }
 //        else if(ACTION_SAMPLING_CH.equals(action)){
 //            Log.d(TAG, "ACTION_SAMPLING_CH");
@@ -335,24 +341,22 @@ public class SensorService extends IntentService implements SensorEventListener2
 //         mBatchDelay = 5*1000*1000;
 //        mBatchDelay = 8*1000*1000;
 //        mBatchDelay = 0;
-
-        if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
-            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
-        }else {
-            Log.d(TAG, "batch is not supported " + mGyroSensor.getName());
-        }
-
-        if(mSensorManager.registerListener(this, mCompassSensor, interval, mBatchDelay)){
-            Log.d(TAG, "batch is supported : " + "compass cnt: "+ mBatchDelay +", "+mCompassSensor.getFifoReservedEventCount());
-        }else {
-            Log.d(TAG, "batch is not supported " + mCompassSensor.getName());
-        }
         if (mSensorManager.registerListener(this, mAccelerometerSensor, interval, mBatchDelay)) {
             Log.d(TAG, "batch is supported : " + "accel cnt: "+ mBatchDelay +", "+mAccelerometerSensor.getFifoReservedEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mAccelerometerSensor.getName());
 
-        if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, 0)) {
+        if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
+            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mGyroSensor.getName());
+
+        if(mSensorManager.registerListener(this, mCompassSensor, interval, mBatchDelay)){
+            Log.d(TAG, "batch is supported : " + "compass cnt: "+ mBatchDelay +", "+mCompassSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mCompassSensor.getName());
+
+        if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, mBatchDelay)) {
             Log.d(TAG, "batch is supported : " + "linearaccel cnt: "+ mBatchDelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mLinearAccelSensor.getName());
@@ -393,19 +397,6 @@ public class SensorService extends IntentService implements SensorEventListener2
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-                if (timeInMillis > 1000)
-                    if(!movBuffering(sensorEvent.values[0] + sensorEvent.values[1] + sensorEvent.values[2], 10)){
-                        boolean isMoving = isMovement();
-
-                        if(isMoving)
-                            mStateTimeReference = timeInMillis;
-
-                        if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000);
-                        else if((timeInMillis - mStateTimeReference)>3000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0);
-                    }
-
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
                 mOutFile.write(data);
@@ -441,7 +432,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mMovBufferIndex = 0;
 
-        if(variance > 0.1){
+        if(variance > 0.2){
             Log.d(TAG, "===================> IS movement!! ,"+variance);
             return true;
         }
@@ -486,13 +477,13 @@ public class SensorService extends IntentService implements SensorEventListener2
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
 //            }
 
-//            if(mAudioRecorder!=null) {
-//                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
-//                Date date = new Date();
-//                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-//                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
-//                audioTag++;
-//            }
+            if(mAudioRecorder!=null) {
+                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
+                Date date = new Date();
+                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
+                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
+                audioTag++;
+            }
 
             Log.d(TAG," STATUS --> [CONTINUOUS] ");
             Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
@@ -502,8 +493,8 @@ public class SensorService extends IntentService implements SensorEventListener2
         {
             mSensingState = status;
 //            freeRegisters();
-//            if(mAudioRecorder!=null)
-//                mAudioRecorder.stopAudioCapture();
+            if(mAudioRecorder!=null)
+                mAudioRecorder.stopAudioCapture();
 
 //            if (mSensorManager.registerListener(mListener2, mLinearAccelSensor, interval, batchdelay) == false) {
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());

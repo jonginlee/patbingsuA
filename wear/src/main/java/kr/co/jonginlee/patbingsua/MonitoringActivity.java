@@ -19,7 +19,6 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.view.WatchViewStub;
 import android.util.Log;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -300,7 +299,7 @@ public class MonitoringActivity extends Activity {
         setUpGoogleApiClient();
         setUpView();
         setUpMessageReceiver();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+//        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 
         mAudioRecorder = new AudioRecorderAsWave();
@@ -441,19 +440,22 @@ public class MonitoringActivity extends Activity {
                         public void onClick(View view) {
 
                             if (isStart == false) {
-                                SensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice"+mTagNum);
+//                                TrigerSensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice_at_"+mTagNum);
+                                SensorService.startActionSensing(getApplicationContext(), 20 * 1000,"data_watch_intentservice"+mTagNum);
+
                                 mTagButton.setText("STOP");
-//                                mTagButton.setBackgroundColor(Color.DKGRAY);
+                                mTagButton.setBackgroundColor(Color.DKGRAY);
                                 mTopLayout.setBackgroundColor(Color.BLACK);
                                 isStart = true;
 
                             } else if (isStart) {
                                 mTagNum++;
+//                                TrigerSensorService.stopActionSensing(getApplicationContext());
                                 SensorService.stopActionSensing(getApplicationContext());
-                                mTagButton.setText("START "+mTagNum);
+
+                                mTagButton.setText("START " + mTagNum);
                                 mTopLayout.setBackgroundColor(Color.BLUE);
                                 isStart = false;
-
                             }
                         }
 
@@ -469,6 +471,7 @@ public class MonitoringActivity extends Activity {
     public void onDestroy() {
         Log.d(TAG, "onDestroy(MonitoringActivity) - pass");
         SensorService.stopActionSensing(getApplicationContext());
+//        TrigerSensorService.stopActionSensing(getApplicationContext());
 
 //        mSensorManager.cancelTriggerSensor(mListener, mSigMotion);
 //        mSensorManager.unregisterListener(mListener2);
