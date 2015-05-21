@@ -18,6 +18,9 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -486,13 +489,14 @@ public class SensorService extends IntentService implements SensorEventListener2
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
 //            }
 
-//            if(mAudioRecorder!=null) {
-//                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
-//                Date date = new Date();
-//                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-//                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
-//                audioTag++;
-//            }
+
+            if(mAudioRecorder!=null) {
+                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
+                Date date = new Date();
+                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
+                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
+                audioTag++;
+            }
 
             Log.d(TAG," STATUS --> [CONTINUOUS] ");
             Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
@@ -502,8 +506,8 @@ public class SensorService extends IntentService implements SensorEventListener2
         {
             mSensingState = status;
 //            freeRegisters();
-//            if(mAudioRecorder!=null)
-//                mAudioRecorder.stopAudioCapture();
+            if(mAudioRecorder!=null)
+                mAudioRecorder.stopAudioCapture();
 
 //            if (mSensorManager.registerListener(mListener2, mLinearAccelSensor, interval, batchdelay) == false) {
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
