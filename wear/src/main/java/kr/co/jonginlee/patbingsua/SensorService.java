@@ -75,7 +75,8 @@ public class SensorService extends IntentService implements SensorEventListener2
     private double[] mMovBuffer = new double[50];
     private int mMovBufferIndex = 0;
     private AudioRecorderAsWave mAudioRecorder;
-
+    private Sensor mHeartRateSensor;
+    private static final int TYPE_HEARTRATE_MONITOR = 21;
 
 
     @Override
@@ -84,6 +85,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mSensorManager = ((SensorManager) getSystemService(SENSOR_SERVICE));
 
+        mHeartRateSensor = mSensorManager.getDefaultSensor(TYPE_HEARTRATE_MONITOR);
         mCompassSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         mAccelerometerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mLinearAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
@@ -129,7 +131,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         if(mSensorManager.flush(this))
             Log.d(TAG, "flush FIFO queue - success");
 
-//        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
+        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
         mSensorManager.unregisterListener(this, this.mCompassSensor);
         mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
         mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
@@ -338,6 +340,8 @@ public class SensorService extends IntentService implements SensorEventListener2
 //         mBatchDelay = 5*1000*1000;
 //        mBatchDelay = 8*1000*1000;
 //        mBatchDelay = 0;
+//
+
 
         if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
             Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
@@ -364,6 +368,12 @@ public class SensorService extends IntentService implements SensorEventListener2
             Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mOrientationSensor.getName());
+
+        if(mSensorManager.registerListener(this, mHeartRateSensor,interval, mBatchDelay)){
+            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mHeartRateSensor.getFifoMaxEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mHeartRateSensor.getName());
+
 
         Log.d(TAG, "start register sensors");
 
@@ -421,6 +431,12 @@ public class SensorService extends IntentService implements SensorEventListener2
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_ORIENTATION) {
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                mOutFile.write(data);
+            }
+            else if (sensorEvent.sensor.getType() == TYPE_HEARTRATE_MONITOR) {
+                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - HR " + sensorEvent.values[0] + ", milli " + timeInMillis);
+                Toast.makeText(getApplicationContext(), " * HR " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
+                byte[] data = new String(tagNum + ",HeartRate," + sensorEvent.values[0] + ", 0, 0," + timeInMillis + "\r\n").getBytes();
                 mOutFile.write(data);
             }
 
