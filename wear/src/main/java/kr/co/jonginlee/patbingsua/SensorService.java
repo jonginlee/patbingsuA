@@ -77,6 +77,9 @@ public class SensorService extends IntentService implements SensorEventListener2
     private AudioRecorderAsWave mAudioRecorder;
     private Sensor mHeartRateSensor;
     private static final int TYPE_HEARTRATE_MONITOR = 21;
+    private Sensor mBarometerSensor;
+    private AudioRecorder mAudioRecorder2;
+    private ExtAudioRecorder mExtAudioRecorder;
 
 
     @Override
@@ -85,6 +88,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mSensorManager = ((SensorManager) getSystemService(SENSOR_SERVICE));
 
+        mBarometerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
         mHeartRateSensor = mSensorManager.getDefaultSensor(TYPE_HEARTRATE_MONITOR);
         mCompassSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         mAccelerometerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -92,6 +96,8 @@ public class SensorService extends IntentService implements SensorEventListener2
         mGyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         mOrientationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
         mAudioRecorder = new AudioRecorderAsWave();
+        mAudioRecorder2 = new AudioRecorder();
+        mExtAudioRecorder = ExtAudioRecorder.getInstanse(true);
 
         super.onCreate();
         Log.d(TAG, "onCreate(SensorService) - pass");
@@ -131,6 +137,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         if(mSensorManager.flush(this))
             Log.d(TAG, "flush FIFO queue - success");
 
+        mSensorManager.unregisterListener(this, this.mBarometerSensor);
         mSensorManager.unregisterListener(this, this.mHeartRateSensor);
         mSensorManager.unregisterListener(this, this.mCompassSensor);
         mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
@@ -289,7 +296,7 @@ public class SensorService extends IntentService implements SensorEventListener2
             try {
                 mFos = new FileOutputStream(mfile);
                 mOutFile = new DataOutputStream(new BufferedOutputStream(mFos));
-                byte[] data = new String("tag, type, x, y, z, time" + "\r\n").getBytes();
+                byte[] data = new String("tag, type, x, y, z, time, acc" + "\r\n").getBytes();
                 mOutFile.write(data);
                 mOutFile.flush();
             } catch (IOException e) {
@@ -343,6 +350,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 //
 
 
+
         if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
             Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
         }else {
@@ -369,10 +377,16 @@ public class SensorService extends IntentService implements SensorEventListener2
         }else
             Log.d(TAG, "batch is not supported "+mOrientationSensor.getName());
 
-        if(mSensorManager.registerListener(this, mHeartRateSensor,interval, mBatchDelay)){
-            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mHeartRateSensor.getFifoMaxEventCount());
-        }else
-            Log.d(TAG, "batch is not supported "+mHeartRateSensor.getName());
+//        if(mSensorManager.registerListener(this, mHeartRateSensor, 1*1000*1000, mBatchDelay)){
+//            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mHeartRateSensor.getFifoMaxEventCount());
+//        }else
+//            Log.d(TAG, "batch is not supported "+mHeartRateSensor.getName());
+//
+//        if(mSensorManager.registerListener(this, mBarometerSensor, 1*1000*1000, mBatchDelay)){
+//            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mBarometerSensor.getFifoReservedEventCount());
+//        }else {
+//            Log.d(TAG, "batch is not supported " + mBarometerSensor.getName());
+//        }
 
 
         Log.d(TAG, "start register sensors");
@@ -393,16 +407,17 @@ public class SensorService extends IntentService implements SensorEventListener2
 
             long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
 
+
 //            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
 
             if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+"\r\n").getBytes();
+                byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+","+sensorEvent.accuracy +"\r\n").getBytes();
                 mOutFile.write(data);
             } else
             if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
@@ -420,23 +435,29 @@ public class SensorService extends IntentService implements SensorEventListener2
                     }
 
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Gyro," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                byte[] data = new String(tagNum + ",Gyro," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_ORIENTATION) {
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis + "\r\n").getBytes();
+                byte[] data = new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == TYPE_HEARTRATE_MONITOR) {
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - HR " + sensorEvent.values[0] + ", milli " + timeInMillis);
-                Toast.makeText(getApplicationContext(), " * HR " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
-                byte[] data = new String(tagNum + ",HeartRate," + sensorEvent.values[0] + ", 0, 0," + timeInMillis + "\r\n").getBytes();
+                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - HR " + sensorEvent.values[0] + ", milli " + timeInMillis);
+//                Toast.makeText(getApplicationContext(), " * HR " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
+                byte[] data = new String(tagNum + ",HeartRate," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+                mOutFile.write(data);
+            }
+            else if (sensorEvent.sensor.getType() == Sensor.TYPE_PRESSURE) {
+                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - Pressure " + sensorEvent.values[0] + ", milli " + timeInMillis);
+//                Toast.makeText(getApplicationContext(), " * Pressure " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
+                byte[] data = new String(tagNum + ",Pressure," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
 
@@ -504,15 +525,37 @@ public class SensorService extends IntentService implements SensorEventListener2
 //            if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, batchdelay) == false) {
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
 //            }
-
-
+//################################ case 1 #############
             if(mAudioRecorder!=null) {
-                DateFormat dateFormat = new SimpleDateFormat("HH_mm_ss");
+                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
                 Date date = new Date();
                 Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-                mAudioRecorder.startAudioCapture(mfilename + "_" + dateFormat.format(date) + "_" + audioTag + ".wav");
+                mAudioRecorder.startAudioCapture(mfilename + "-" + dateFormat.format(date) + "-" + audioTag + ".wav");
                 audioTag++;
             }
+
+//################################ case 2 #############
+//            if(mAudioRecorder2!=null){
+//                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
+//                Date date = new Date();
+//                Log.d(TAG, "audio_start_time " + dateFormat.format(date));
+//                mAudioRecorder2.startRecording(mfilename + "-" + dateFormat.format(date) + "-" + audioTag + ".3gp");
+//                audioTag++;
+//            }
+//################################ case 3 #############
+//            if(mExtAudioRecorder!=null)
+//            {
+//                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
+//                Date date = new Date();
+//                Log.d(TAG, "audio_start_time " + dateFormat.format(date));
+//                mExtAudioRecorder.setOutputFile("/sdcard/"+mfilename + "-" + dateFormat.format(date) + "-" + audioTag + ".3gp");
+//                audioTag++;
+//
+//                mExtAudioRecorder.prepare();
+//
+//                mExtAudioRecorder.start();
+//            }
+//################################ end #############
 
             Log.d(TAG," STATUS --> [CONTINUOUS] ");
             Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
@@ -522,9 +565,19 @@ public class SensorService extends IntentService implements SensorEventListener2
         {
             mSensingState = status;
 //            freeRegisters();
+//################################ case 1 #############
             if(mAudioRecorder!=null)
                 mAudioRecorder.stopAudioCapture();
-
+//################################ case 2 #############
+//            if(mAudioRecorder2!=null)
+//                mAudioRecorder2.stopRecording();
+//################################ case 3 #############
+//            if(mExtAudioRecorder!=null){
+//                mExtAudioRecorder.stop();
+//                mExtAudioRecorder.release();
+//            }
+//            mExtAudioRecorder = mExtAudioRecorder.getInstanse(true);
+//################################ end #############
 //            if (mSensorManager.registerListener(mListener2, mLinearAccelSensor, interval, batchdelay) == false) {
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
 //            }

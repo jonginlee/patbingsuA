@@ -11,8 +11,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.BlockingQueue;
 
 import static android.os.Environment.getExternalStorageDirectory;
+
+
+//http://www.edumobile.org/android/audio-recording-in-wav-format-in-android-programming/
 
 /**
  * Created by jonginlee on 15. 5. 14..
@@ -34,6 +38,7 @@ public class AudioRecorderAsWave {
     private String RECORDED_FILE_NAME = "recorded.wav";
     private long mSizeOfRecData = 0;
     private DataOutputStream outFile;
+    private WaveWriter mWaveWriter;
 
     public AudioRecorderAsWave(String filename) {
         RECORDED_FILE_NAME = filename;
@@ -45,7 +50,7 @@ public class AudioRecorderAsWave {
 
     public int getValidSampleRates() {
         int samplingrate = -1;
-        for (int rate : new int[] { 8000, 22050,16000, 11025, 44100,8000}) {  // add the rates you wish to check against
+        for (int rate : new int[] { 8000, 44100, 16000, 22050, 11025, 44100,8000 }) {  // add the rates you wish to check against
             int bufferSize = AudioRecord.getMinBufferSize(rate, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
             if (bufferSize > 0) {
                 // buffer size is valid, Sample rate supported
@@ -89,8 +94,8 @@ public class AudioRecorderAsWave {
 
         RECORDER_SAMPLERATE = getValidSampleRates();
         bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
-        Log.d(TAG, "Starting audio capture" + " buffer size (" + bufferSize + ")");
-        bufferSize = bufferSize*10;
+        Log.v(TAG, "Starting audio capture" + " buffer size (" + bufferSize + ")");
+//        bufferSize = bufferSize*10;
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING, bufferSize);
         byte[] header = new byte[44];
 
@@ -108,16 +113,27 @@ public class AudioRecorderAsWave {
 
         if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
             recorder.startRecording();
-//            if(recorder.getRecordingState() == AudioRecord.RECORDSTATE_STOPPED){
-//                Log.v(TAG, "startrecording again!!");
-//                recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING, bufferSize);
-//                if (recorder.getState() == AudioRecord.STATE_INITIALIZED)
-//                    recorder.startRecording();
-//            }
-
             isRecording = true;
-            Log.v(TAG, "Successfully started recording " + bufferSize + " byte");
             mSizeOfRecData = 0;
+            Log.v(TAG, "Successfully started recording " + bufferSize + " byte");
+
+//################################ case 2 #############
+//            BlockingQueue queue = new ArrayBlockingQueue(1024);
+//
+//            Producer producer = new Producer(queue);
+//            Consumer consumer = new Consumer(queue);
+//
+//            new Thread(producer).start();
+//            new Thread(consumer).start();
+
+//################################ case 1 #############
+            if(recorder.getRecordingState() == AudioRecord.RECORDSTATE_STOPPED){
+                Log.v(TAG, "startrecording again!!");
+//                recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, RECORDER_SAMPLERATE, RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING, bufferSize);
+                if (recorder.getState() == AudioRecord.STATE_INITIALIZED)
+                    recorder.startRecording();
+            }
+
             recordingThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -126,31 +142,32 @@ public class AudioRecorderAsWave {
             }, "AudioRecorder_Thread");
 
             recordingThread.start();
+//###########################################################
+
         } else {
             Log.v(TAG, "Failed to started recording");
         }
     }
 
     private void savingRawAudioData() {
-        short data[] = new short[bufferSize];
+        byte data[] = new byte[bufferSize];
         int read = 0;
         Log.v(TAG, "enter savingRawAudioData thread");
         while(isRecording) {
             read = recorder.read(data, 0, bufferSize);
-            if(read<0){
-                Log.v(TAG, "recording state : "+ recorder.getRecordingState());
-                Log.v(TAG, "recorder state : "+recorder.getState());
-            }
+
             if(AudioRecord.ERROR_INVALID_OPERATION != read) {
                 Log.v(TAG, "Successfully read " + data.length + " bytes of audio , read "+read);
-                for(int i = 0; i < read;i++) {
+//                for(int i = 0; i < read;i++) {
                     try {
-                        writeShortLE(outFile, data[i]);
-                        mSizeOfRecData+=(2*1);
+//                        writeShortLE(outFile, data[i]);
+                        outFile.write(data,0,read);
+                        mSizeOfRecData+=read;
+
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                }
+//                }
             }else{
                 Log.v(TAG, "AudioRecord.ERROR_INVALID_OPERATION, read "+read);
             }
@@ -166,14 +183,22 @@ public class AudioRecorderAsWave {
         Log.v(TAG, "Stop audio capture");
 
         if(recorder==null)
-            Log.d(TAG, "recoder is null");
+            Log.d(TAG, "recorder is null");
 
         if(recorder.getState() != AudioRecord.STATE_UNINITIALIZED ){
             recorder.stop();
 
             isRecording = false;
             recorder.release();
+//################################ case 2 #############
+//            try {
+//                mWaveWriter.closeWaveFile();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
 
+
+//################################ case 1 #############
             try {
                 outFile.flush();
                 outFile.close();
@@ -193,10 +218,10 @@ public class AudioRecorderAsWave {
         long mySubChunk1Size = 16;
         int myBitsPerSample= 16;
         int myFormat = 1;
-        long myChannels = 1;
+        long myChannels = 2;
         long mySampleRate = RECORDER_SAMPLERATE;
         long myByteRate = mySampleRate * myChannels * myBitsPerSample/8;
-        int myBlockAlign = (int) (myChannels * myBitsPerSample/8);
+        byte myBlockAlign = (byte) (myChannels * myBitsPerSample/8);
 
         long myDataSize = mSizeOfRecData;
         long myChunk2Size =  myDataSize * myChannels * myBitsPerSample/8;
@@ -230,7 +255,7 @@ public class AudioRecorderAsWave {
     private static byte[] intToByteArray(int i)
     {
         byte[] b = new byte[4];
-        b[0] = (byte) (i & 0x00FF);
+        b[0] = (byte) (i & 0x000000FF);
         b[1] = (byte) ((i >> 8) & 0x000000FF);
         b[2] = (byte) ((i >> 16) & 0x000000FF);
         b[3] = (byte) ((i >> 24) & 0x000000FF);
@@ -246,6 +271,80 @@ public class AudioRecorderAsWave {
          *
          */
 
-        return new byte[]{(byte)(data & 0xff),(byte)((data >>> 8) & 0xff)};
+        return new byte[]{(byte)(data & 0xff),(byte)((data >> 8) & 0xff)};
+    }
+
+    private class Producer implements Runnable{
+
+        protected BlockingQueue queue = null;
+
+        public Producer(BlockingQueue queue) {
+            this.queue = queue;
+        }
+
+        public void run() {
+
+            byte data[] = new byte[bufferSize];
+            Log.v(TAG, "enter savingRawAudioData thread");
+            while(isRecording) {
+                int numSamples = recorder.read(data, 0, data.length);
+
+                if(AudioRecord.ERROR_INVALID_OPERATION != numSamples) {
+                    Log.v(TAG, "Successfully read " + data.length + " bytes of audio , numSamples "+numSamples);
+                    try {
+                        queue.put(new Sample(data, numSamples));
+//                        outFile.write(data,0,read);
+                        mSizeOfRecData+=(numSamples);
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }else{
+                    Log.v(TAG, "AudioRecord.ERROR_INVALID_OPERATION, numSamples "+numSamples*2);
+                }
+
+            }
+
+        }
+    }
+
+    public class Consumer implements Runnable{
+
+        protected BlockingQueue queue = null;
+
+        public Consumer(BlockingQueue queue) {
+            this.queue = queue;
+        }
+
+        public void run() {
+            mWaveWriter = new WaveWriter("/sdcard",RECORDED_FILE_NAME,RECORDER_SAMPLERATE, 1 , 16);
+            try {
+                mWaveWriter.createWaveFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            while(isRecording) {
+
+                try {
+                    Sample sample = (Sample) queue.take();
+                    Log.v(TAG, "Successfully write " + sample.mBuffer.length + "," + sample.mNumSamples + "bytes of audio");
+                    mWaveWriter.write(sample.mBuffer, 0, sample.mNumSamples);
+                } catch (IOException e) {
+                    //snip
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    private class Sample {
+        byte[] mBuffer;
+        int mNumSamples;
+        public Sample(byte[] buffer, int numSamples) {
+            this.mBuffer = buffer.clone();
+            this.mNumSamples = numSamples;
+        }
     }
 }
