@@ -168,7 +168,7 @@ public class AudioRecorderAsWave {
                         e.printStackTrace();
                     }
 //                }
-            }else{
+            } else{
                 Log.v(TAG, "AudioRecord.ERROR_INVALID_OPERATION, read "+read);
             }
         }
@@ -218,7 +218,7 @@ public class AudioRecorderAsWave {
         long mySubChunk1Size = 16;
         int myBitsPerSample= 16;
         int myFormat = 1;
-        long myChannels = 2;
+        long myChannels = 1;
         long mySampleRate = RECORDER_SAMPLERATE;
         long myByteRate = mySampleRate * myChannels * myBitsPerSample/8;
         byte myBlockAlign = (byte) (myChannels * myBitsPerSample/8);
