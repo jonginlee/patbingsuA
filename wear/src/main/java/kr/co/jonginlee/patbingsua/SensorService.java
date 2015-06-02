@@ -60,6 +60,11 @@ public class SensorService extends IntentService implements SensorEventListener2
     private String mfilename = null;
     private DataOutputStream mOutFile;
 
+    private FileOutputStream mFos2 = null;
+    private File mfile2 = null;
+    private String mfilename2 = null;
+    private DataOutputStream mOutFile2;
+
     private File mfile_trigger = null;
     private FileOutputStream mFos_trigger = null;
     private DataOutputStream mOutFile_trigger;
@@ -80,6 +85,8 @@ public class SensorService extends IntentService implements SensorEventListener2
     private Sensor mBarometerSensor;
     private AudioRecorder mAudioRecorder2;
     private ExtAudioRecorder mExtAudioRecorder;
+    private long mStartTimeMilli;
+    private String mStartTimeHour;
 
 
     @Override
@@ -162,6 +169,17 @@ public class SensorService extends IntentService implements SensorEventListener2
                 mOutFile.close();
                 mFos.flush();
                 mFos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if(mFos2 !=null){
+            try {
+                mOutFile2.flush();
+                mOutFile2.close();
+                mFos2.flush();
+                mFos2.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -250,9 +268,9 @@ public class SensorService extends IntentService implements SensorEventListener2
                             mStateTimeReference = timeInMillis;
 
                         if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000);
+                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis);
                         else if((timeInMillis - mStateTimeReference)>5000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0);
+                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis);
                     }
 
                 Log.d(TAG, " * trigger sensor - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
@@ -290,6 +308,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 //        super.onStartCommand(intent, flags, startId);
 
         mfilename = intent.getStringExtra(RECORDED_FILENAME);
+        mfilename2 = mfilename+"_active.log";
 
         if ((mfile == null) && (mfilename !=null)) {
             mfile = new File(getExternalStorageDirectory(), mfilename+".txt");
@@ -299,10 +318,27 @@ public class SensorService extends IntentService implements SensorEventListener2
                 byte[] data = new String("tag, type, x, y, z, time, acc" + "\r\n").getBytes();
                 mOutFile.write(data);
                 mOutFile.flush();
+
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
+        if ((mfile2 == null) && (mfilename2 !=null)) {
+            mfile2 = new File(getExternalStorageDirectory(), mfilename2+".txt");
+            try {
+                mFos2 = new FileOutputStream(mfile2);
+                mOutFile2 = new DataOutputStream(new BufferedOutputStream(mFos2));
+                byte[] data2 = new String("tag, milli, hour, elapsed" + "\r\n").getBytes();
+                mOutFile2.write(data2);
+                mOutFile2.flush();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
 
 //        if ((mfile_trigger == null) && (mfilename !=null)) {
 //            mfile_trigger = new File(getExternalStorageDirectory(), mfilename+"_triger_sensor.txt");
@@ -407,9 +443,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
             long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
 
-
 //            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
-
             if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+","+sensorEvent.accuracy +"\r\n").getBytes();
@@ -429,9 +463,9 @@ public class SensorService extends IntentService implements SensorEventListener2
                             mStateTimeReference = timeInMillis;
 
                         if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000);
+                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis);
                         else if((timeInMillis - mStateTimeReference)>3000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0);
+                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis);
                     }
 
                 Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
@@ -505,7 +539,7 @@ public class SensorService extends IntentService implements SensorEventListener2
             return true;
     }
 
-    private void doChangeSamplingRate(int interval, int status, int batchdelay) {
+    private void doChangeSamplingRate(int interval, int status, int batchdelay, long timeInMillis) {
 
         Log.d(TAG, "(in) doChangeSamplingRate");
 //        if(mSensingState == STATUS_SENSING_CHECKING)
@@ -520,6 +554,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         if(status == STATUS_SENSING_CONTINUOUS)
         {
             mSensingState = status;
+
 //            mSensorManager.unregisterListener(mListener2, this.mLinearAccelSensor);
 //            registerSensor(interval, 2 * 1000 * 1000);
 //            if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, batchdelay) == false) {
@@ -530,7 +565,9 @@ public class SensorService extends IntentService implements SensorEventListener2
                 DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
                 Date date = new Date();
                 Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-                mAudioRecorder.startAudioCapture(mfilename + "-" + dateFormat.format(date) + "-" + audioTag + ".wav");
+                mStartTimeMilli = timeInMillis;
+                mStartTimeHour =dateFormat.format(date);
+                mAudioRecorder.startAudioCapture(mfilename + "-" + mStartTimeHour + "-" + audioTag + ".wav");
                 audioTag++;
             }
 
@@ -565,6 +602,15 @@ public class SensorService extends IntentService implements SensorEventListener2
         {
             mSensingState = status;
 //            freeRegisters();
+            byte[] data2 = new String(tagNum + ", "+mStartTimeMilli+", "+mStartTimeHour+", " +(timeInMillis-mStartTimeMilli) + "\r\n").getBytes();
+
+            try {
+                mOutFile2.write(data2);
+                mOutFile2.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
 //################################ case 1 #############
             if(mAudioRecorder!=null)
                 mAudioRecorder.stopAudioCapture();
