@@ -18,9 +18,6 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -87,6 +84,7 @@ public class SensorService extends IntentService implements SensorEventListener2
     private ExtAudioRecorder mExtAudioRecorder;
     private long mStartTimeMilli;
     private String mStartTimeHour;
+    private long[] mVibrationPattern;
 
 
     @Override
@@ -105,6 +103,8 @@ public class SensorService extends IntentService implements SensorEventListener2
         mAudioRecorder = new AudioRecorderAsWave();
         mAudioRecorder2 = new AudioRecorder();
         mExtAudioRecorder = ExtAudioRecorder.getInstanse(true);
+
+
 
         super.onCreate();
         Log.d(TAG, "onCreate(SensorService) - pass");
@@ -306,6 +306,14 @@ public class SensorService extends IntentService implements SensorEventListener2
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand(SensorService)");
 //        super.onStartCommand(intent, flags, startId);
+//        mVibrationPattern = new long[20];
+//        for(int i=0; i < mVibrationPattern.length/2; i++)
+//        {
+//            mVibrationPattern[2*i] = 6000 - 6000/(mVibrationPattern.length/2) * (i+1);
+//            mVibrationPattern[2*i+1] = 6000 - 6000/(mVibrationPattern.length/2) * (i+1);
+//        }
+
+        mVibrationPattern = new long[]{75,25,75,25,75,25,75,525,75,25,75,25,75,25,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,525,75,25,75,25,75,25,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,225};
 
         mfilename = intent.getStringExtra(RECORDED_FILENAME);
         mfilename2 = mfilename+"_active.log";
@@ -515,7 +523,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mMovBufferIndex = 0;
 
-        if(variance > 0.1){
+        if(variance > 0.5){ // 원래 0.1임
             Log.d(TAG, "===================> IS movement!! ,"+variance);
             return true;
         }
@@ -561,15 +569,15 @@ public class SensorService extends IntentService implements SensorEventListener2
 //                Log.d(TAG, "batch is not supported : " + "linearaccel cnt: "+ batchdelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
 //            }
 //################################ case 1 #############
-            if(mAudioRecorder!=null) {
-                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
-                Date date = new Date();
-                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-                mStartTimeMilli = timeInMillis;
-                mStartTimeHour =dateFormat.format(date);
-                mAudioRecorder.startAudioCapture(mfilename + "-" + mStartTimeHour + "-" + audioTag + ".wav");
-                audioTag++;
-            }
+//            if(mAudioRecorder!=null) {
+//                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
+//                Date date = new Date();
+//                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
+//                mStartTimeMilli = timeInMillis;
+//                mStartTimeHour =dateFormat.format(date);
+//                mAudioRecorder.startAudioCapture(mfilename + "-" + mStartTimeHour + "-" + audioTag + ".wav");
+//                audioTag++;
+//            }
 
 //################################ case 2 #############
 //            if(mAudioRecorder2!=null){
@@ -597,6 +605,16 @@ public class SensorService extends IntentService implements SensorEventListener2
             Log.d(TAG," STATUS --> [CONTINUOUS] ");
             Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
             MonitoringActivity.setBackgroundColor(Color.RED);
+
+//            Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+//            //-1 - don't repeat
+//            final int indexInPatternToRepeat = 3;
+//            AudioAttributes att = new AudioAttributes.Builder()
+//                    .setUsage(AudioAttributes.USAGE_MEDIA)
+//                    .build();
+//
+//            vibrator.vibrate(mVibrationPattern, indexInPatternToRepeat, att );
+
         }
         else if(status == STATUS_SENSING_CHECKING)
         {
@@ -612,8 +630,8 @@ public class SensorService extends IntentService implements SensorEventListener2
             }
 
 //################################ case 1 #############
-            if(mAudioRecorder!=null)
-                mAudioRecorder.stopAudioCapture();
+//            if(mAudioRecorder!=null)
+//                mAudioRecorder.stopAudioCapture();
 //################################ case 2 #############
 //            if(mAudioRecorder2!=null)
 //                mAudioRecorder2.stopRecording();
