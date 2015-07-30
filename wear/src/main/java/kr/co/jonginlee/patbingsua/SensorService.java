@@ -3,7 +3,6 @@ package kr.co.jonginlee.patbingsua;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -11,13 +10,15 @@ import android.hardware.SensorEventListener2;
 import android.hardware.SensorManager;
 import android.os.PowerManager;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -85,6 +86,10 @@ public class SensorService extends IntentService implements SensorEventListener2
     private long mStartTimeMilli;
     private String mStartTimeHour;
     private long[] mVibrationPattern;
+    private float[] mGravs = new float[3];
+    private float[] mGeoMags = new float[3];
+    private float[] mRotationM = new float[9];
+    private Sensor mGravity = null;
 
 
     @Override
@@ -100,11 +105,11 @@ public class SensorService extends IntentService implements SensorEventListener2
         mLinearAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         mGyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         mOrientationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+
         mAudioRecorder = new AudioRecorderAsWave();
         mAudioRecorder2 = new AudioRecorder();
         mExtAudioRecorder = ExtAudioRecorder.getInstanse(true);
-
-
 
         super.onCreate();
         Log.d(TAG, "onCreate(SensorService) - pass");
@@ -144,14 +149,14 @@ public class SensorService extends IntentService implements SensorEventListener2
         if(mSensorManager.flush(this))
             Log.d(TAG, "flush FIFO queue - success");
 
-        mSensorManager.unregisterListener(this, this.mBarometerSensor);
-        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
+//        mSensorManager.unregisterListener(this, this.mBarometerSensor);
+//        mSensorManager.unregisterListener(this, this.mHeartRateSensor);
         mSensorManager.unregisterListener(this, this.mCompassSensor);
         mSensorManager.unregisterListener(this, this.mLinearAccelSensor);
         mSensorManager.unregisterListener(this, this.mAccelerometerSensor);
         mSensorManager.unregisterListener(this, this.mGyroSensor);
         mSensorManager.unregisterListener(this, this.mOrientationSensor);
-
+        mSensorManager.unregisterListener(this, this.mGravity);
 //        stopAudioCapture();
 //        mSensorManager.unregisterListener(this, this.mRotationVector);
         Log.d(TAG, "freeRegisters(SensorService) - pass");
@@ -386,7 +391,8 @@ public class SensorService extends IntentService implements SensorEventListener2
 
     public void registerSensor(int interval, int batchDelay) {
         Log.d(TAG, "registerSensor(SensorService) - interval : " + interval);
-        mBatchDelay = batchDelay;
+//        mBatchDelay = batchDelay;
+        mBatchDelay = 0;
 //        latch = new CountDownLatch(1);
 //         mBatchDelay = 5*1000*1000;
 //        mBatchDelay = 8*1000*1000;
@@ -421,11 +427,16 @@ public class SensorService extends IntentService implements SensorEventListener2
         }else
             Log.d(TAG, "batch is not supported "+mOrientationSensor.getName());
 
+        if(mSensorManager.registerListener(this, mGravity,interval, mBatchDelay)){
+            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mGravity.getName());
+
 //        if(mSensorManager.registerListener(this, mHeartRateSensor, 1*1000*1000, mBatchDelay)){
 //            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mHeartRateSensor.getFifoMaxEventCount());
 //        }else
 //            Log.d(TAG, "batch is not supported "+mHeartRateSensor.getName());
-//
+
 //        if(mSensorManager.registerListener(this, mBarometerSensor, 1*1000*1000, mBatchDelay)){
 //            Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mBarometerSensor.getFifoReservedEventCount());
 //        }else {
@@ -435,7 +446,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         Log.d(TAG, "start register sensors");
 
-//        latch.countDown();
+//        latch.countDown();sdf
     }
 
 
@@ -503,6 +514,33 @@ public class SensorService extends IntentService implements SensorEventListener2
                 mOutFile.write(data);
             }
 
+            synchronized (this) {
+                switch (sensorEvent.sensor.getType()) {
+                    case Sensor.TYPE_GRAVITY:
+                        System.arraycopy(sensorEvent.values, 0, mGravs, 0, 3);
+                        break;
+                    case Sensor.TYPE_MAGNETIC_FIELD:
+                        System.arraycopy(sensorEvent.values, 0, mGeoMags, 0, 3);
+                        break;
+                    default:
+                        return;
+                }
+                if (mGravs != null && mGeoMags != null) {
+                    boolean bSuccess = SensorManager.getRotationMatrix(mRotationM, null, mGravs, mGeoMags);
+                    if(bSuccess)
+                    {
+//                        Log.d(TAG, "getRotationmatrix called");
+//                        byte[] data = new String(tagNum + ",Roationmatrix," +
+//                                mRotationM[0] + "," +mRotationM[1] + "," + mRotationM[2] + "," +
+//                                mRotationM[3] + "," +mRotationM[4] + "," + mRotationM[5] + "," +
+//                                mRotationM[6] + "," +mRotationM[7] + "," + mRotationM[8] + "," +
+//                                timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                        mOutFile.write(data);
+                    }
+
+                }
+            }
+
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -523,7 +561,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mMovBufferIndex = 0;
 
-        if(variance > 0.5){ // 원래 0.1임
+        if(variance > 0.1 ){ // 원래 0.1임
             Log.d(TAG, "===================> IS movement!! ,"+variance);
             return true;
         }
@@ -570,11 +608,11 @@ public class SensorService extends IntentService implements SensorEventListener2
 //            }
 //################################ case 1 #############
 //            if(mAudioRecorder!=null) {
-//                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
-//                Date date = new Date();
+                DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
+                Date date = new Date();
 //                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
-//                mStartTimeMilli = timeInMillis;
-//                mStartTimeHour =dateFormat.format(date);
+                mStartTimeMilli = timeInMillis;
+                mStartTimeHour =dateFormat.format(date);
 //                mAudioRecorder.startAudioCapture(mfilename + "-" + mStartTimeHour + "-" + audioTag + ".wav");
 //                audioTag++;
 //            }
@@ -603,8 +641,8 @@ public class SensorService extends IntentService implements SensorEventListener2
 //################################ end #############
 
             Log.d(TAG," STATUS --> [CONTINUOUS] ");
-            Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
-            MonitoringActivity.setBackgroundColor(Color.RED);
+//            Toast.makeText(getApplicationContext(), "STATUS --> [CONTINUOUS]", Toast.LENGTH_SHORT).show();
+//            MonitoringActivity.setBackgroundColor(Color.RED);
 
 //            Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 //            //-1 - don't repeat
@@ -647,8 +685,8 @@ public class SensorService extends IntentService implements SensorEventListener2
 //            }
 
             Log.d(TAG," STATUS --> [CHECKING] ");
-            Toast.makeText(getApplicationContext(), "STATUS --> [CHECKING]", Toast.LENGTH_SHORT).show();
-            MonitoringActivity.setBackgroundColor(Color.BLACK);
+//            Toast.makeText(getApplicationContext(), "STATUS --> [CHECKING]", Toast.LENGTH_SHORT).show();
+//            MonitoringActivity.setBackgroundColor(Color.BLACK);
         }
     }
 
