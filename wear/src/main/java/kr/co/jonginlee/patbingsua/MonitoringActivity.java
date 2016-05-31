@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -14,6 +13,7 @@ import android.hardware.TriggerEvent;
 import android.hardware.TriggerEventListener;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.view.WatchViewStub;
@@ -21,6 +21,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
@@ -36,6 +37,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -49,7 +52,7 @@ public class MonitoringActivity extends Activity {
     private GoogleApiClient mGoogleApiClient;
     private static int SENSOR_TYPE_TILT_DETECTOR = 65536;
 
-    private static final String TAG = "WearWatch";
+    public static final String TAG = "WearWatch";
     private final TriggerEventListener mListener = new TriggerEventListener() {
         @Override
         public void onTrigger(TriggerEvent event) {
@@ -59,6 +62,42 @@ public class MonitoringActivity extends Activity {
             Toast.makeText(getApplicationContext(), "- motion detected -\r\n- "+dateFormat.format(date)+" -", Toast.LENGTH_SHORT).show();
         }
     };
+    private MonitoringActivity _this;
+    private Timer timer = null;
+
+
+    public class MyTimerTask extends TimerTask {
+
+        @Override
+        public void run() {
+            System.out.println("Timer task started at:" + new Date());
+            completeTask();
+            System.out.println("Timer task finished at:" + new Date());
+        }
+
+        private void completeTask() {
+            try {
+
+                //assuming it takes 20 secs to complete the task
+                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent batteryStatus = _this.registerReceiver(null, ifilter);
+//
+                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+
+                float batteryPct = level / (float)scale;
+
+                int temp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                Log.d(TAG,"temp "+temp);
+
+                Log.d(TAG, " batteryPct - "+ batteryPct + "   tmp - " + temp/10);
+
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     private final SensorEventListener mListener2 = new SensorEventListener() {
         @Override
@@ -106,10 +145,24 @@ public class MonitoringActivity extends Activity {
     private long mSizeOfRecData = 0;
     private DataOutputStream outFile;
     private AudioRecorderAsWave mAudioRecorder = null;
+    private ImageView mImageView = null;
 //    private DataOutputStream dos;
 //    private byte[] clipData;
 //    private ByteArrayOutputStream recData;
 
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+
+    }
+
+    @Override
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
+    }
 
     public void handleRecordButtonClick(View view) {
         if(mAudioRecorder!=null)
@@ -295,6 +348,7 @@ public class MonitoringActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        _this = this;
         Log.d(TAG, "onCreate(MonitoringActivity)");
         setContentView(R.layout.activity_monitoring);
         setUpGoogleApiClient();
@@ -302,6 +356,10 @@ public class MonitoringActivity extends Activity {
         setUpMessageReceiver();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        TimerTask timerTask = new MyTimerTask();
+        //running timer task as daemon thread
+        timer = new Timer(true);
+        timer.scheduleAtFixedRate(timerTask, 0, 60 * 1000);
 
         mAudioRecorder = new AudioRecorderAsWave();
         try {
@@ -398,9 +456,17 @@ public class MonitoringActivity extends Activity {
 
             if(message!=null){
 
-                Toast.makeText(getApplicationContext(), "received MSG success", Toast.LENGTH_LONG).show();
+                if(message.equalsIgnoreCase("start"))
+                {
+                    String mtag = intent.getStringExtra("mTagnum");
+                    Toast.makeText(getApplicationContext(), "receivedMSG["+message+"]-"+mtag, Toast.LENGTH_LONG).show();
+                    startButtonProc(Integer.parseInt(mtag));
 
-                //startButtonProc();
+                }else{
+                    Toast.makeText(getApplicationContext(), "received MSG["+message+"]", Toast.LENGTH_LONG).show();
+
+                }
+
 //                    new MyAsyncTask().execute(message);
 
             }
@@ -412,6 +478,30 @@ public class MonitoringActivity extends Activity {
             }
 
 
+        }
+    }
+
+    private void startButtonProc(int tagnum) {
+        mTagNum = tagnum;
+        if (isStart == false) {
+//                                TrigerSensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice_at_"+mTagNum);
+            SensorService.startActionSensing(mGoogleApiClient, getApplicationContext(), 20 * 1000, "watch" + mTagNum);
+
+            mImageView.setImageResource(R.drawable.btstop);
+            mTagButton.setText("STOP");
+            //mTagButton.setBackgroundColor(Color.DKGRAY);
+            //mTopLayout.setBackgroundColor(Color.WHITE);
+            isStart = true;
+
+        } else if (isStart) {
+            mTagNum++;
+//                                TrigerSensorService.stopActionSensing(getApplicationContext());
+            SensorService.stopActionSensing(getApplicationContext());
+            mImageView.setImageResource(R.drawable.btplay);
+            mTagButton.setText("START " + mTagNum);
+            //mTagButton.setBackgroundColor(Color.BLUE);
+            //mTopLayout.setBackgroundColor(Color.WHITE);
+            isStart = false;
         }
     }
 
@@ -431,33 +521,26 @@ public class MonitoringActivity extends Activity {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
                 mTagButton = (Button) findViewById(R.id.tag);
+                mImageView = (ImageView) findViewById(R.id.spaceImg);
+
                 mTagButton.setText("START "+mTagNum);
                 mTopLayout = (LinearLayout) stub.findViewById(R.id.toplayout);
 //                mStartRecordingButton = ()
+                if (!mImageView.hasOnClickListeners()) {
+                    mImageView.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            startButtonProc(mTagNum);
 
+                        }
+                    });
+                }
                 if (!mTagButton.hasOnClickListeners()) {
                     mTagButton.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
+                            startButtonProc(mTagNum);
 
-                            if (isStart == false) {
-//                                TrigerSensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice_at_"+mTagNum);
-                                SensorService.startActionSensing(getApplicationContext(), 20 * 1000,"data_watch_intentservice"+mTagNum);
-
-                                mTagButton.setText("STOP");
-                                mTagButton.setBackgroundColor(Color.DKGRAY);
-                                mTopLayout.setBackgroundColor(Color.BLACK);
-                                isStart = true;
-
-                            } else if (isStart) {
-                                mTagNum++;
-//                                TrigerSensorService.stopActionSensing(getApplicationContext());
-                                SensorService.stopActionSensing(getApplicationContext());
-
-                                mTagButton.setText("START " + mTagNum);
-                                mTopLayout.setBackgroundColor(Color.BLUE);
-                                isStart = false;
-                            }
                         }
 
                     });
@@ -474,6 +557,7 @@ public class MonitoringActivity extends Activity {
         SensorService.stopActionSensing(getApplicationContext());
 //        TrigerSensorService.stopActionSensing(getApplicationContext());
 
+        timer.cancel();
 //        mSensorManager.cancelTriggerSensor(mListener, mSigMotion);
 //        mSensorManager.unregisterListener(mListener2);
 
@@ -487,6 +571,7 @@ public class MonitoringActivity extends Activity {
                     @Override
                     public void onConnected(Bundle connectionHint) {
                         Log.d(TAG, "onConnected(mGoogleApiClient): " + connectionHint);
+
                         // Now you can use the Data Layer API
                     }
                     @Override

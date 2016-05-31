@@ -5,48 +5,65 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:id="@+id/topLayout"
-    android:background="@android:color/holo_blue_dark"
+    android:background="@android:color/white"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context=".MyActivity">
 
-
-    <Button
-        android:id="@+id/tag"
+    <LinearLayout
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        android:textColor="@android:color/black"
+        android:orientation="horizontal" >
+
+
+
+        <Button
+        android:id="@+id/tag"
+        android:layout_width="200dip"
+        android:layout_height="70dip"
+
         android:textSize="25dp"
-        android:text="Tag1 Start! " android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
+        android:text="Tag1 Start"
         />
+
+    </LinearLayout>
+
 
     <TextView
         android:id="@+id/comment1"
-        android:text="comment1"
-        android:textColor="@android:color/white"
+        android:text="status"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"/>
 
-    <Button
-        android:id="@+id/sendmsg"
-        android:layout_width="fill_parent"
+
+
+    <CheckBox android:id="@+id/linearaccel"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
         android:textColor="@android:color/black"
-        android:textSize="25dp"
-        android:text="Send Msg " android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
-        />
-    <TextView
-        android:paddingTop="10dp"
-        android:id="@+id/rssiresult"
-        android:text="rssi result"
-        android:textColor="@android:color/white"
-        android:textSize="20dip"
+        android:text="Rotation Vector"/>
+
+    <LinearLayout
+        android:id="@+id/graph1"
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="150dip"
+        android:orientation="vertical" />
+
+    <CheckBox android:id="@+id/gyroscope"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/black"
+        android:text="Orientation"/>
+
+    <LinearLayout
+        android:id="@+id/graph2"
+        android:layout_width="fill_parent"
+        android:layout_height="150dip"
+        android:orientation="vertical" />
+
+
 
 </LinearLayout>

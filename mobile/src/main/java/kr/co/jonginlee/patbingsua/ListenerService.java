@@ -24,14 +24,14 @@ public class ListenerService extends WearableListenerService {
         for (DataEvent event : dataEvents) {
             if (event.getType() == DataEvent.TYPE_CHANGED) {
                 dataMap = DataMapItem.fromDataItem(event.getDataItem()).getDataMap();
-                Log.v(TAG, "DataMap received on mobile: " + dataMap);
+//                Log.v(TAG, "DataMap received on mobile: " + dataMap);
 
                 String logs=null;
                 String keys = null;
                 for (String key : dataMap.keySet()) {
                     logs = dataMap.get(key);
                     keys = key;
-                    Log.v(TAG, "key : "+key+" values : "+logs);
+//                    Log.v(TAG, "key : "+key+" values : "+logs);
                 }
 
                 Intent messageIntent = new Intent();

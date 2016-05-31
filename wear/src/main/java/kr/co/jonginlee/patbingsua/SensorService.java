@@ -10,6 +10,10 @@ import android.hardware.SensorEventListener2;
 import android.hardware.SensorManager;
 import android.os.PowerManager;
 import android.util.Log;
+import android.widget.TextView;
+
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataMap;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -19,6 +23,7 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.concurrent.CountDownLatch;
 
 import static android.os.Environment.getExternalStorageDirectory;
 
@@ -34,6 +39,7 @@ public class SensorService extends IntentService implements SensorEventListener2
     // IntentService can perform, e.g. ACTION_FETCH_NEW_ITEMS
     private static final String ACTION_SENSING = "kr.co.jonginlee.patbingsua.action.sensing";
     private static final String ACTION_BAZ = "kr.co.jonginlee.patbingsua.action.BAZ";
+    private static GoogleApiClient mGoogleApiClient;
 
     // TODO: Rename parameters
     private static final String DELAY_INTERVAL = "kr.co.jonginlee.patbingsua.delay.interval";
@@ -48,11 +54,12 @@ public class SensorService extends IntentService implements SensorEventListener2
     private Sensor mCompassSensor = null;
     private Sensor mOrientationSensor = null;
     private Sensor mGyroSensor = null;
+    private Sensor mRotationVectorSensor;
     private SensorManager mSensorManager = null;
 
-    private static final String TAG = "WearWatch";
-    private long sensorTimeReference = 0l;
+    private static final String TAG = MonitoringActivity.TAG;
 
+    private long sensorTimeReference = 0l;
     private FileOutputStream mFos = null;
     private File mfile = null;
     private String mfilename = null;
@@ -63,11 +70,17 @@ public class SensorService extends IntentService implements SensorEventListener2
     private String mfilename2 = null;
     private DataOutputStream mOutFile2;
 
+    private FileOutputStream mFos3 = null;
+    private File mfile3 = null;
+    private String mfilename3 = null;
+    private DataOutputStream mOutFile3;
+
+
     private File mfile_trigger = null;
     private FileOutputStream mFos_trigger = null;
+
+
     private DataOutputStream mOutFile_trigger;
-
-
     private PowerManager.WakeLock wakelock = null;
     private int tagNum = 1;
     private double mPrevAccelValue = 0;
@@ -86,10 +99,27 @@ public class SensorService extends IntentService implements SensorEventListener2
     private long mStartTimeMilli;
     private String mStartTimeHour;
     private long[] mVibrationPattern;
-    private float[] mGravs = new float[3];
-    private float[] mGeoMags = new float[3];
+    private float[] mGravs = null;
+    private float[] mGeoMags = null;
     private float[] mRotationM = new float[9];
+
+
+
     private Sensor mGravity = null;
+    float[] mR = new float[9];
+    float[] prevmR = new float[9];
+    float[] mI = new float[9];
+    float[] mV = new float[3];
+    float pit = 0;
+    float rol = 0;
+    Float baseAzimuth;
+    Float basePitch;
+    Float baseRoll;
+    private TextView mTxtOrient;
+    private float xrot;					//X Rotation
+    private float yrot;					//Y Rotation
+    private long myTimeReference =0;
+    private float[] mRot;
 
 
     @Override
@@ -106,10 +136,23 @@ public class SensorService extends IntentService implements SensorEventListener2
         mGyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         mOrientationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
         mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+        mRotationVectorSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
         mAudioRecorder = new AudioRecorderAsWave();
         mAudioRecorder2 = new AudioRecorder();
         mExtAudioRecorder = ExtAudioRecorder.getInstanse(true);
+
+//        IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+//        Intent batteryStatus = this.registerReceiver(null, ifilter);
+//
+//        int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+//        boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+//                status == BatteryManager.BATTERY_STATUS_FULL;
+//        Log.d(TAG,"isCharging "+isCharging);
+//
+//        int temp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+//        Log.d(TAG,"temp "+temp);
+
 
         super.onCreate();
         Log.d(TAG, "onCreate(SensorService) - pass");
@@ -130,7 +173,8 @@ public class SensorService extends IntentService implements SensorEventListener2
      * @see IntentService
      */
     // TODO: Customize helper method
-    public static void startActionSensing(Context context, int interval, String filename) {
+    public static void startActionSensing(GoogleApiClient googleApiClient, Context context, int interval, String filename) {
+        mGoogleApiClient = googleApiClient;
         Intent intent = new Intent(context, SensorService.class);
         intent.setAction(ACTION_SENSING);
         intent.putExtra(DELAY_INTERVAL, interval);
@@ -158,9 +202,11 @@ public class SensorService extends IntentService implements SensorEventListener2
         mSensorManager.unregisterListener(this, this.mOrientationSensor);
         mSensorManager.unregisterListener(this, this.mGravity);
 //        stopAudioCapture();
-//        mSensorManager.unregisterListener(this, this.mRotationVector);
+        mSensorManager.unregisterListener(this, this.mRotationVectorSensor);
         Log.d(TAG, "freeRegisters(SensorService) - pass");
     }
+
+
 
 
     @Override
@@ -185,6 +231,17 @@ public class SensorService extends IntentService implements SensorEventListener2
                 mOutFile2.close();
                 mFos2.flush();
                 mFos2.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if(mFos3 !=null){
+            try {
+                mOutFile3.flush();
+                mOutFile3.close();
+                mFos3.flush();
+                mFos3.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -263,6 +320,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
             long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference2) / 1000000.0);
 
+            long realtimeInMillis = 0;
             if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
 
                 if (timeInMillis > 1000)
@@ -273,9 +331,9 @@ public class SensorService extends IntentService implements SensorEventListener2
                             mStateTimeReference = timeInMillis;
 
                         if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis);
+                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis,realtimeInMillis);
                         else if((timeInMillis - mStateTimeReference)>5000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis);
+                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis,realtimeInMillis);
                     }
 
                 Log.d(TAG, " * trigger sensor - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
@@ -320,15 +378,18 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         mVibrationPattern = new long[]{75,25,75,25,75,25,75,525,75,25,75,25,75,25,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,525,75,25,75,25,75,25,75,25,75,25,75,25,75,225,75,25,75,25,75,25,75,225};
 
-        mfilename = intent.getStringExtra(RECORDED_FILENAME);
-        mfilename2 = mfilename+"_active.log";
+        String filename =  intent.getStringExtra(RECORDED_FILENAME);
+        mfilename = filename +"_sensor_data";
+        mfilename2 = filename+"_active_mv";
+        mfilename3 = filename+"_rotaion";
+
 
         if ((mfile == null) && (mfilename !=null)) {
             mfile = new File(getExternalStorageDirectory(), mfilename+".txt");
             try {
                 mFos = new FileOutputStream(mfile);
                 mOutFile = new DataOutputStream(new BufferedOutputStream(mFos));
-                byte[] data = new String("tag, type, x, y, z, time, acc" + "\r\n").getBytes();
+                byte[] data = new String("tag, type, x, y, z, ad1, time, real_time, acc" + "\r\n").getBytes();
                 mOutFile.write(data);
                 mOutFile.flush();
 
@@ -343,7 +404,7 @@ public class SensorService extends IntentService implements SensorEventListener2
             try {
                 mFos2 = new FileOutputStream(mfile2);
                 mOutFile2 = new DataOutputStream(new BufferedOutputStream(mFos2));
-                byte[] data2 = new String("tag, milli, hour, elapsed" + "\r\n").getBytes();
+                byte[] data2 = new String("tag, milli, resl_time, hour, elapsed, epoch " + "\r\n").getBytes();
                 mOutFile2.write(data2);
                 mOutFile2.flush();
 
@@ -351,6 +412,21 @@ public class SensorService extends IntentService implements SensorEventListener2
                 e.printStackTrace();
             }
         }
+
+        if ((mfile3 == null) && (mfilename3 !=null)) {
+            mfile3 = new File(getExternalStorageDirectory(), mfilename3+".txt");
+            try {
+                mFos3 = new FileOutputStream(mfile3);
+                mOutFile3 = new DataOutputStream(new BufferedOutputStream(mFos3));
+                byte[] data3 = new String("tag, azimuth, pitch, roll, pitchDiff, rollDiff, xrot, yrot, m0, m1, m2, m3, m4, m5, m6, m7, m8 , time, real_time" + "\r\n").getBytes();
+                mOutFile3.write(data3);
+                mOutFile3.flush();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
 
 
 //        if ((mfile_trigger == null) && (mfilename !=null)) {
@@ -373,6 +449,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
         String action = intent.getAction();
         int interval = intent.getIntExtra(DELAY_INTERVAL, 500 * 1000);
+
         if (ACTION_SENSING.equals(action)) {
             Log.d(TAG, "onStartCommand(SensorService) - ACTION_SENSING - pass");
 //            if (mSensorManager.registerListener(mListener2 , mLinearAccelSensor, interval, 0) == false) {
@@ -392,14 +469,12 @@ public class SensorService extends IntentService implements SensorEventListener2
     public void registerSensor(int interval, int batchDelay) {
         Log.d(TAG, "registerSensor(SensorService) - interval : " + interval);
 //        mBatchDelay = batchDelay;
+//        interval = 50 * 1000;
         mBatchDelay = 0;
 //        latch = new CountDownLatch(1);
 //         mBatchDelay = 5*1000*1000;
 //        mBatchDelay = 8*1000*1000;
 //        mBatchDelay = 0;
-//
-
-
 
         if(mSensorManager.registerListener(this, mGyroSensor, interval, mBatchDelay)){
             Log.d(TAG,"batch is supported : "+"gyro cnt: "+ mBatchDelay +", "+mGyroSensor.getFifoReservedEventCount());
@@ -412,25 +487,31 @@ public class SensorService extends IntentService implements SensorEventListener2
         }else {
             Log.d(TAG, "batch is not supported " + mCompassSensor.getName());
         }
+        
         if (mSensorManager.registerListener(this, mAccelerometerSensor, interval, mBatchDelay)) {
             Log.d(TAG, "batch is supported : " + "accel cnt: "+ mBatchDelay +", "+mAccelerometerSensor.getFifoReservedEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mAccelerometerSensor.getName());
 
-        if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, 0)) {
+        if (mSensorManager.registerListener(this, mLinearAccelSensor, interval, mBatchDelay)) {
             Log.d(TAG, "batch is supported : " + "linearaccel cnt: "+ mBatchDelay +", "+mLinearAccelSensor.getFifoMaxEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mLinearAccelSensor.getName());
 
-        if(mSensorManager.registerListener(this, mOrientationSensor,interval, mBatchDelay)){
+        if (mSensorManager.registerListener(this, mRotationVectorSensor, interval, mBatchDelay)) {
+            Log.d(TAG, "batch is supported : " + "mRotationVectorSensor cnt: "+ mBatchDelay +", "+mRotationVectorSensor.getFifoReservedEventCount());
+        }else
+            Log.d(TAG, "batch is not supported "+mRotationVectorSensor.getName());
+
+        if (mSensorManager.registerListener(this, mOrientationSensor,interval, mBatchDelay)) {
             Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
         }else
             Log.d(TAG, "batch is not supported "+mOrientationSensor.getName());
 
-        if(mSensorManager.registerListener(this, mGravity,interval, mBatchDelay)){
-            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
-        }else
-            Log.d(TAG, "batch is not supported "+mGravity.getName());
+//        if(mSensorManager.registerListener(this, mGravity,interval, mBatchDelay)){
+//            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mOrientationSensor.getFifoMaxEventCount());
+//        }else
+//            Log.d(TAG, "batch is not supported "+mGravity.getName());
 
 //        if(mSensorManager.registerListener(this, mHeartRateSensor, 1*1000*1000, mBatchDelay)){
 //            Log.d(TAG,"batch is supported : "+"orientation cnt: "+ mBatchDelay +", "+mHeartRateSensor.getFifoMaxEventCount());
@@ -455,22 +536,39 @@ public class SensorService extends IntentService implements SensorEventListener2
     public void onSensorChanged(SensorEvent sensorEvent) {
         // grab the values and timestamp
         try {
-            if (sensorTimeReference == 0l) {
+
+            if (sensorTimeReference == 0l&& myTimeReference == 0l) {
                 sensorTimeReference = sensorEvent.timestamp;
+                myTimeReference = System.currentTimeMillis();
             }
             // set event timestamp to current time in milliseconds
 
             long timeInMillis = Math.round((sensorEvent.timestamp - sensorTimeReference) / 1000000.0);
+//            double realtimeInMillis = sensorEvent.timestamp/1000000.0;
+
+//            if(timeInMillis % 1000*60*30 == 0)
+//            {
+//                myTimeReference = System.currentTimeMillis();
+//            }
+
+
+//            DateFormat dateFormat = new SimpleDateFormat("(yyyy-MM-dd)-HH-mm-ss");
+//            Date date = new Date();
+//            mStartTimeHour =dateFormat.format(date);
+             long realtimeInMillis= myTimeReference + timeInMillis;
+
+//                Log.d(TAG,"audio_start_time " + dateFormat.format(date));
 
 //            Log.d(TAG, "time_milli : "+timeInMillis +", orignal : "+ sensorEvent.timestamp );
+
             if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+timeInMillis+","+sensorEvent.accuracy +"\r\n").getBytes();
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum+",Magnet," + sensorEvent.values[0] +","+ sensorEvent.values[1]+","+ sensorEvent.values[2] +","+0+"," +timeInMillis+ "," + realtimeInMillis +","+sensorEvent.accuracy +"\r\n").getBytes();
                 mOutFile.write(data);
-            } else
-            if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+            }
+            else if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+//                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," +0+"," + timeInMillis + "," + realtimeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
@@ -482,53 +580,157 @@ public class SensorService extends IntentService implements SensorEventListener2
                             mStateTimeReference = timeInMillis;
 
                         if(isMoving && mSensingState == STATUS_SENSING_CHECKING)
-                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis);
+                            doChangeSamplingRate(20*1000, STATUS_SENSING_CONTINUOUS,1*1000*1000, timeInMillis, realtimeInMillis);
                         else if((timeInMillis - mStateTimeReference)>3000 && (!isMoving && mSensingState == STATUS_SENSING_CONTINUOUS))
-                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis);
+                            doChangeSamplingRate(100*1000, STATUS_SENSING_CHECKING,0, timeInMillis, realtimeInMillis);
                     }
 
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ","+0+"," + timeInMillis + "," + realtimeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
+
+//                insertBufferLogs("logs", new String(tagNum + ",Linearaccel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + 0 + "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",Gyro," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",Gyro," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," +0+","+ timeInMillis + "," + realtimeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
+            }
+            else if (sensorEvent.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - RotationVector " + sensorEvent.values[0] + ", milli " + timeInMillis);
+                //Toast.makeText(getApplicationContext(), "  RotationVector " + sensorEvent.values[0]+" ", Toast.LENGTH_SHORT).show();
+                float[] Q = new float[4];
+                SensorManager.getQuaternionFromVector(Q, sensorEvent.values);
+                byte[] data = new String(tagNum + ",RotationVector," + Q[1] + "," +  Q[2] + "," + Q[3] + ","+Q[0]+"," + timeInMillis  + "," + realtimeInMillis +","+sensorEvent.accuracy +"\r\n").getBytes();
+
+//                byte[] data = new String(tagNum + ",RotationVector," + sensorEvent.values[0] + "," +  sensorEvent.values[1] + "," + sensorEvent.values[2] + ","+sensorEvent.values[3]+"," + timeInMillis  + "," + realtimeInMillis +","+sensorEvent.accuracy +"\r\n").getBytes();
+                mOutFile.write(data);
+                insertBufferLogs2("logs", new String(tagNum + ",RotationVector," +  Q[1] + "," +  Q[2] + "," + Q[3] + ","+Q[0]+ "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
+
+//                insertBufferLogs2("logs", new String(tagNum + ",RotationVector," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + 0 + "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
+
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_ORIENTATION) {
-                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
-                byte[] data = new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                Log.d(TAG, "onSensorChanged(SensorService) - "+sensorEvent.sensor.getVendor()+" - "  + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+                byte[] data = new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," +0+","+ timeInMillis + "," + realtimeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
+
+                insertBufferLogs("logs", new String(tagNum + ",orientation," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + 0 + "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
             }
-            else if (sensorEvent.sensor.getType() == TYPE_HEARTRATE_MONITOR) {
-                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - HR " + sensorEvent.values[0] + ", milli " + timeInMillis);
-//                Toast.makeText(getApplicationContext(), " * HR " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
-                byte[] data = new String(tagNum + ",HeartRate," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
-                mOutFile.write(data);
-            }
-            else if (sensorEvent.sensor.getType() == Sensor.TYPE_PRESSURE) {
-                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - Pressure " + sensorEvent.values[0] + ", milli " + timeInMillis);
-//                Toast.makeText(getApplicationContext(), " * Pressure " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
-                byte[] data = new String(tagNum + ",Pressure," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
-                mOutFile.write(data);
-            }
+//            else if (sensorEvent.sensor.getType() == TYPE_HEARTRATE_MONITOR) {
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - HR " + sensorEvent.values[0] + ", milli " + timeInMillis);
+////                Toast.makeText(getApplicationContext(), " * HR " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
+//                byte[] data = new String(tagNum + ",HeartRate," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                mOutFile.write(data);
+//            }
+//            else if (sensorEvent.sensor.getType() == Sensor.TYPE_PRESSURE) {
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - Pressure " + sensorEvent.values[0] + ", milli " + timeInMillis);
+////                Toast.makeText(getApplicationContext(), " * Pressure " + sensorEvent.values[0]+" *", Toast.LENGTH_SHORT).show();
+//                byte[] data = new String(tagNum + ",Pressure," + sensorEvent.values[0] + ", 0, 0," + timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
+//                mOutFile.write(data);
+//            }
 
             synchronized (this) {
-                switch (sensorEvent.sensor.getType()) {
-                    case Sensor.TYPE_GRAVITY:
-                        System.arraycopy(sensorEvent.values, 0, mGravs, 0, 3);
-                        break;
-                    case Sensor.TYPE_MAGNETIC_FIELD:
-                        System.arraycopy(sensorEvent.values, 0, mGeoMags, 0, 3);
-                        break;
-                    default:
-                        return;
+
+
+                if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+                    mGeoMags = sensorEvent.values.clone();
+                } else if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                    mGravs = sensorEvent.values.clone();
                 }
+//                else if (sensorEvent.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+//                    mRot = sensorEvent.values.clone();
+//
+//                    SensorManager.getRotationMatrixFromVector(Rx, mRot[0]);
+//                    SensorManager.getRotationMatrixFromVector(Ry, mRot[1]);
+//                    SensorManager.getRotationMatrixFromVector(Rz, mRot[2]);
+//                }
+
                 if (mGravs != null && mGeoMags != null) {
-                    boolean bSuccess = SensorManager.getRotationMatrix(mRotationM, null, mGravs, mGeoMags);
+                    boolean bSuccess = SensorManager.getRotationMatrix(mR, null, mGravs, mGeoMags);
                     if(bSuccess)
                     {
+                        float pitchDifference ;
+                        float rollDifference;
+                        SensorManager.getOrientation(mR, mV);
+                        if (null == baseAzimuth) {
+                            baseAzimuth =  mV[0];
+                        }
+                        if (null == basePitch) {
+                            basePitch = mV[1];
+                        }
+                        if (null == baseRoll) {
+                            baseRoll = mV[2];
+                        }
+
+                        pitchDifference = mV[1] - basePitch;
+                        rollDifference = mV[2] - baseRoll;
+
+                        yrot -= rollDifference;
+                        xrot -= pitchDifference;
+                        baseRoll = mV[2];
+                        basePitch = mV[1];
+
+
+//                        StringBuilder result = new StringBuilder();
+//
+////                        result.append("회수 = " + mOrientCount/FREQ + "회\n");
+//                        result.append("azimuth:" + String.format("%.2f, %.2f", mV[0], Radian2Degree(mV[0])));
+//                        result.append("\npitch:" + String.format("%.2f, %.2f", mV[1], Radian2Degree(mV[1])));
+//                        result.append("\nroll:" + String.format("%.2f, %.2f", mV[2], Radian2Degree(mV[2])));
+//                        result.append("\n\n");
+
+                        pit = Radian2Degree(mV[1]);
+                        rol = Radian2Degree(mV[2]);
+
+                        // left hand watch
+//                        if (1< pit  && pit <=90) {
+//                            result.append("up \n");
+//                        } else if (-1 <= rol && rol <=1) {
+//                            result.append("upright\n");
+//                        } else if (-90 <= pit  && pit <1) {
+//                            result.append("down \n");
+//                        }
+//                        else {
+//                            result.append("not sure\n");
+//                        }
+//                        // left hand watch
+//                        if (-180 <=rol && rol < -90) {
+//                            result.append("left & face-down\n");
+//                        }
+//                        if (-90 <=rol && rol < -1) {
+//                            result.append("left & face-up\n");
+//                        }
+//                        else if (-1 <= rol && rol <=1) {
+//                            result.append("upright\n");
+//                        }
+//                        else if (1 <rol && rol <= 90){
+//                            result.append("right normal \n");
+//                        }
+//                        else if (90 <rol && rol <= 180){
+//                            result.append("right abnormal \n");
+//                        }
+//                        else {
+//                            result.append("not sure\n");
+//                        }
+
+                        //result.append("x " + "pitchDifference = " + pitchDifference + "\n");
+                        //result.append("y " + "rollDifference = " + rollDifference + "\n\n");
+
+//                        result.append("xrot = " + xrot + "\n");
+//                        result.append("yrot = " + yrot + "\n");
+//                        result.append("R:\n" + dumpMatrix(mR));
+
+//   new String("tag, azimuth, azimuth_rad, pitch, pitch_rad, roll, roll_rad, pitchDiff, rollDiff, m0, m1, m2, m3, m4, m5, m6, m7, m8 " + "\r\n").getBytes();
+
+                        byte[] data3 = new String(tagNum  + "," + Radian2Degree(mV[0]) +"," +
+                               + Radian2Degree(mV[1]) + "," +
+                               + Radian2Degree(mV[2]) + "," + pitchDifference +","+rollDifference + "," + xrot  +"," + yrot + ","+
+                                        mR[0] +","+ mR[1] +","+ mR[2]+","+ mR[3]+","+ mR[4]+","+ mR[5]+","+ mR[6]+","+ mR[7]+","+ mR[8]+","+ timeInMillis + "," + realtimeInMillis + "\r\n").getBytes();
+
+                        mOutFile3.write(data3);
+                        //mTxtOrient.setText(result.toString());
+
 //                        Log.d(TAG, "getRotationmatrix called");
 //                        byte[] data = new String(tagNum + ",Roationmatrix," +
 //                                mRotationM[0] + "," +mRotationM[1] + "," + mRotationM[2] + "," +
@@ -536,6 +738,17 @@ public class SensorService extends IntentService implements SensorEventListener2
 //                                mRotationM[6] + "," +mRotationM[7] + "," + mRotationM[8] + "," +
 //                                timeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
 //                        mOutFile.write(data);
+                        mGravs = null;
+                        mGeoMags =null;
+
+//                        if(prevmR!=null){
+//                            float[] ac = new float[3];
+//                            SensorManager.getAngleChange(ac, mR, prevmR);
+//                            insertBufferLogs2("logs", new String(tagNum + ",RotationVector," + ac[0] + "," + ac[1] + "," + ac[2] + "," + 0 + "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
+//                        }
+//
+//                        prevmR = mR.clone();
+
                     }
 
                 }
@@ -547,6 +760,14 @@ public class SensorService extends IntentService implements SensorEventListener2
         }
 //        new SensorEventLoggerTask().execute(event);
 //        stopSelf();
+    }
+
+    String dumpMatrix(float[] m) {
+        return String.format("%.2f, %.2f, %.2f\n%.2f, %.2f, %.2f\n%.2f, %.2f, %.2f\n",
+                m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
+    }
+    float Radian2Degree(float radian) {
+        return radian * 180 / (float)Math.PI;
     }
 
     private boolean isMovement() {
@@ -566,7 +787,7 @@ public class SensorService extends IntentService implements SensorEventListener2
             return true;
         }
         else{
-            Log.d(TAG, "===================> NO movement!! ,"+variance);
+//            Log.d(TAG, "===================> NO movement!! ,"+variance);
             return false;
         }
     }
@@ -576,7 +797,7 @@ public class SensorService extends IntentService implements SensorEventListener2
         mMovBuffer[mMovBufferIndex] = value;
         mMovBufferIndex++;
 
-        Log.d(TAG, "===================> MOV Buffering!!, " + mMovBufferIndex);
+//        Log.d(TAG, "===================> MOV Buffering!!, " + mMovBufferIndex);
 
         if (mMovBufferIndex >= limit){
             return false;
@@ -585,7 +806,63 @@ public class SensorService extends IntentService implements SensorEventListener2
             return true;
     }
 
-    private void doChangeSamplingRate(int interval, int status, int batchdelay, long timeInMillis) {
+    private CountDownLatch latch;
+    private String mLogsBuffer ="";
+    private int mLogBufferLimit = 10;
+    private int mLogBufferIdx = 0;
+    DataMap mDataMap = new DataMap();
+
+
+    private void insertBufferLogs(String key, String log) {
+
+        latch = new CountDownLatch(1);
+
+        mLogsBuffer += log;
+
+        if(mLogBufferIdx < mLogBufferLimit)
+            mLogBufferIdx++;
+        else{
+            mDataMap.putString(key, mLogsBuffer);
+            new SendToDataLayerThread(mGoogleApiClient,SendToDataLayerThread.TYPE_DATA_SYNC, "/data", mDataMap, null).start();
+//            Log.v(TAG, "sendToDataLayerThread");
+
+            mLogsBuffer="";
+            mLogBufferIdx=0;
+        }
+
+        latch.countDown();
+        //Requires a new thread to avoid blocking the UI
+    }
+
+    private CountDownLatch latch2;
+    private String mLogsBuffer2 ="";
+    private int mLogBufferLimit2 = 10;
+    private int mLogBufferIdx2 = 0;
+    DataMap mDataMap2 = new DataMap();
+
+
+    private void insertBufferLogs2(String key, String log) {
+
+        latch2 = new CountDownLatch(1);
+
+        mLogsBuffer2 += log;
+
+        if(mLogBufferIdx2 < mLogBufferLimit2)
+            mLogBufferIdx2++;
+        else{
+            mDataMap2.putString(key, mLogsBuffer2);
+            new SendToDataLayerThread(mGoogleApiClient,SendToDataLayerThread.TYPE_DATA_SYNC, "/data", mDataMap2, null).start();
+//            Log.v(TAG, "sendToDataLayerThread");
+
+            mLogsBuffer2="";
+            mLogBufferIdx2=0;
+        }
+
+        latch2.countDown();
+        //Requires a new thread to avoid blocking the UI
+    }
+
+    private void doChangeSamplingRate(int interval, int status, int batchdelay, long timeInMillis, long realtimeInMillis) {
 
         Log.d(TAG, "(in) doChangeSamplingRate");
 //        if(mSensingState == STATUS_SENSING_CHECKING)
@@ -658,7 +935,12 @@ public class SensorService extends IntentService implements SensorEventListener2
         {
             mSensingState = status;
 //            freeRegisters();
-            byte[] data2 = new String(tagNum + ", "+mStartTimeMilli+", "+mStartTimeHour+", " +(timeInMillis-mStartTimeMilli) + "\r\n").getBytes();
+            long elapsed = (timeInMillis-mStartTimeMilli);
+            int epoch = 0;
+            if(elapsed>3000)
+                epoch = 1;
+
+            byte[] data2 = new String(tagNum + ", "+mStartTimeMilli+" , " +realtimeInMillis +" , "+mStartTimeHour+", " +elapsed + ","+epoch + "\r\n").getBytes();
 
             try {
                 mOutFile2.write(data2);

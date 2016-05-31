@@ -1,26 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
     android:id="@+id/toplayout"
     android:orientation="vertical"
-    android:background="@color/blue"
+    android:background="@color/white"
     tools:context=".MyActivity"
-    tools:deviceIds="wear_square" android:padding="12dp"
+    tools:deviceIds="wear_square" android:padding="0dp"
     android:weightSum="1">
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        >
+    <ImageView
+        android:id="@+id/spaceImg"
+        android:layout_width="165dp"
+        android:layout_height="165dp"
+        android:paddingTop="40dp"
+        android:src="@drawable/btplay"
+        android:layout_gravity="center_horizontal"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
 
     <Button
         android:id="@+id/tag"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="6pt"
-        android:padding="5pt"
+        android:layout_width="194dp"
+        android:layout_height="match_parent"
         android:background="@color/white"
         android:textColor="@color/black"
-        android:textSize="25dp"
+        android:textSize="15dp"
         android:text="START" android:layout_gravity="center_horizontal" android:layout_marginTop="1dp"
         />
+
+    </LinearLayout>
 
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
