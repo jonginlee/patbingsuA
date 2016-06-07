@@ -14,32 +14,26 @@ import com.google.android.gms.wearable.WearableListenerService;
 
 public class ListenerService extends WearableListenerService {
 
-    private static final String TAG = "WearMobile";
+    private static final String TAG = "WearWatch";
 
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
-
 
         DataMap dataMap;
         for (DataEvent event : dataEvents) {
             if (event.getType() == DataEvent.TYPE_CHANGED) {
                 dataMap = DataMapItem.fromDataItem(event.getDataItem()).getDataMap();
-//                Log.v(TAG, "DataMap received on mobile: " + dataMap);
+                Log.v(TAG, "DataMap received on Watch: " + dataMap);
 
-                String logs=null;
-                String keys = null;
+
                 for (String key : dataMap.keySet()) {
-                    logs = dataMap.get(key);
-                    keys = key;
-//                    Log.v(TAG, "key : "+key+" values : "+logs);
+                    String values = dataMap.get(key);
+                    Log.v(TAG, "key : "+key+" values : "+values);
                 }
 
                 Intent messageIntent = new Intent();
                 messageIntent.setAction(Intent.ACTION_SEND);
-
-                messageIntent.putExtra("dataMessage", logs);
-
-
+                messageIntent.putExtra("dataMessage", "Recieved dataMap "+dataMap.toString());
                 LocalBroadcastManager.getInstance(this).sendBroadcast(messageIntent);
             }
         }
@@ -50,8 +44,8 @@ public class ListenerService extends WearableListenerService {
 
         if (messageEvent.getPath().equals("/msg")) {
             final String message = new String(messageEvent.getData());
-            Log.v(TAG, "Message path received on mobile is: " + messageEvent.getPath());
-            Log.v(TAG, "Message received on mobile is: " + message);
+            Log.v(TAG, "Message path received on watch is: " + messageEvent.getPath());
+            Log.v(TAG, "Message received on watch is: " + message);
 
             // Broadcast message to wearable activity for display
             Intent messageIntent = new Intent();

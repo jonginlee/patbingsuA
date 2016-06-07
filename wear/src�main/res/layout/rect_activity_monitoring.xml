@@ -37,8 +37,6 @@
             android:layout_height="wrap_content"
             android:onClick="handleRecordButtonClick"
             android:textSize="20pt"
-            android:visibility="gone"
-
             android:layout_marginRight="10pt"
             android:text="s" />
 
@@ -47,8 +45,6 @@
             android:layout_width="60dp"
             android:layout_height="wrap_content"
             android:onClick="handleStopButtonClick"
-            android:visibility="gone"
-
             android:textSize="20pt"
             android:text="t" />
 
