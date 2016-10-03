@@ -799,11 +799,7 @@ public class SensorService extends IntentService implements SensorEventListener2
 
 //        Log.d(TAG, "===================> MOV Buffering!!, " + mMovBufferIndex);
 
-        if (mMovBufferIndex >= limit){
-            return false;
-        }
-        else
-            return true;
+        return mMovBufferIndex < limit;
     }
 
     private CountDownLatch latch;

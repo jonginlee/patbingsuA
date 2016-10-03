@@ -53,7 +53,7 @@ public class ExtAudioRecorder
      * ERROR : reconstruction needed
      * STOPPED: reset needed
      */
-    public enum State {INITIALIZING, READY, RECORDING, ERROR, STOPPED};
+    public enum State {INITIALIZING, READY, RECORDING, ERROR, STOPPED}
 
     public static final boolean RECORDING_UNCOMPRESSED = true;
     public static final boolean RECORDING_COMPRESSED = false;

@@ -449,11 +449,7 @@ public class TrigerSensorService extends IntentService implements SensorEventLis
 
         Log.d(TAG, "===================> MOV Buffering!!, " + mMovBufferIndex);
 
-        if (mMovBufferIndex >= limit){
-            return false;
-        }
-        else
-            return true;
+        return mMovBufferIndex < limit;
     }
 
     private void doChangeSamplingRate(int interval, int status, int batchdelay) {
