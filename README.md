@@ -4,4 +4,6 @@ This repository contains the source code for extracting raw data of sensors in s
 
 
 ## Demo
-[![Demo CountPages alpha](http://j.gifs.com/Mj9QQm.gif)](https://vimeo.com/185487058)
+[![Demo CountPages alpha](https://gifs.com/gif/76ALG1)](https://vimeo.com/185487058)
+
+
