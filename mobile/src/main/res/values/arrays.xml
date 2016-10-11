@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="sensorname">
+        <item >not_selected</item>
+        <item >Accelerometer</item>
+        <item >Linear_Accelerometer</item>
+        <item >Gyroscope</item>
+        <item >Magnetometer_(compass)</item>
+        <item >Rotation_Vector</item>
+        <item >Orientation</item>
+    </string-array>
+
+    <string-array name="sampling">
+        <item >not selected</item>
+        <item >10Hz</item>
+        <item >50Hz</item>
+        <item >100Hz</item>
+        <item >200Hz</item>
+    </string-array>
+</resources>
