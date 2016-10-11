@@ -44,15 +44,14 @@ import static android.os.Environment.getExternalStorageDirectory;
 
 public class MonitoringActivity extends Activity {
 
-    private int mTagNum = 1;
-
-    private Button mTagButton;
-    private boolean isStart = false;
-    private static LinearLayout mTopLayout;
-    private GoogleApiClient mGoogleApiClient;
-    private static int SENSOR_TYPE_TILT_DETECTOR = 65536;
-
     public static final String TAG = "WearWatch";
+    // for recording functions below
+    private static final int SPEECH_REQUEST_CODE = 1;
+    private static final int RECORDER_SAMPLERATE = 22100;
+    private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+    private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+    private static LinearLayout mTopLayout;
+    private static int SENSOR_TYPE_TILT_DETECTOR = 65536;
     private final TriggerEventListener mListener = new TriggerEventListener() {
         @Override
         public void onTrigger(TriggerEvent event) {
@@ -62,79 +61,42 @@ public class MonitoringActivity extends Activity {
             Toast.makeText(getApplicationContext(), "- motion detected -\r\n- "+dateFormat.format(date)+" -", Toast.LENGTH_SHORT).show();
         }
     };
-    private MonitoringActivity _this;
-    private Timer timer = null;
-
-
-    public class MyTimerTask extends TimerTask {
-
-        @Override
-        public void run() {
-            System.out.println("Timer task started at:" + new Date());
-            completeTask();
-            System.out.println("Timer task finished at:" + new Date());
-        }
-
-        private void completeTask() {
-            try {
-
-                //assuming it takes 20 secs to complete the task
-                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-                Intent batteryStatus = _this.registerReceiver(null, ifilter);
-//
-                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-
-                float batteryPct = level / (float)scale;
-
-                int temp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
-                Log.d(TAG,"temp "+temp);
-
-                Log.d(TAG, " batteryPct - "+ batteryPct + "   tmp - " + temp/10);
-
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     private final SensorEventListener mListener2 = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent event) {
             DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
             Date date = new Date();
-            Toast.makeText(getApplicationContext(), "- tilt detected -\r\n- "+dateFormat.format(date)+" -", Toast.LENGTH_SHORT).show();
-            Log.d(TAG, event.values[0] +" , "+event.sensor.getType() +", "+event.sensor.getName() +", "+event.timestamp);
+            Toast.makeText(getApplicationContext(), "- tilt detected -\r\n- " + dateFormat.format(date) + " -", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, event.values[0] + " , " + event.sensor.getType() + ", " + event.sensor.getName() + ", " + event.timestamp);
         }
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
             Log.d(TAG, "onAccuracyChanged(Tilt Detector) - " + sensor.getName() + ", accuracy - " + accuracy);
-            if(SensorManager.SENSOR_STATUS_ACCURACY_HIGH == accuracy){
+            if (SensorManager.SENSOR_STATUS_ACCURACY_HIGH == accuracy) {
                 Log.d(TAG, "accuracy - high");
-            }else if(SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM == accuracy){
+            } else if (SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM == accuracy) {
                 Log.d(TAG, "accuracy - medium");
-            }else if(SensorManager.SENSOR_STATUS_ACCURACY_LOW == accuracy){
+            } else if (SensorManager.SENSOR_STATUS_ACCURACY_LOW == accuracy) {
                 Log.d(TAG, "accuracy - low");
-            }else if(SensorManager.SENSOR_STATUS_NO_CONTACT == accuracy){
+            } else if (SensorManager.SENSOR_STATUS_NO_CONTACT == accuracy) {
                 Log.d(TAG, "accuracy - no contact");
-            }else if(SensorManager.SENSOR_STATUS_UNRELIABLE == accuracy){
+            } else if (SensorManager.SENSOR_STATUS_UNRELIABLE == accuracy) {
                 Log.d(TAG, "accuracy - unreliable");
             }
         }
     };
-
+    private int mTagNum = 1;
+    private Button mTagButton;
+    private boolean isStart = false;
+    private GoogleApiClient mGoogleApiClient;
+    private MonitoringActivity _this;
+    private Timer timer = null;
+    private String mSensorName = "Linear_Accelerometer";
+    private String mSamplingRate = "50Hz";
     private Sensor mSigMotion;
     private SensorManager mSensorManager;
     private Sensor mTiltDetector;
-
-    // for recording functions below
-    private static final int SPEECH_REQUEST_CODE = 1;
-    private static final int RECORDER_SAMPLERATE = 22100;
-    private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
-    private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-
     private AudioRecord recorder;
     private int bufferSize = 0;
     private Thread recordingThread = null;
@@ -144,12 +106,17 @@ public class MonitoringActivity extends Activity {
     private String RECORDED_FILE_NAME = "recorded.wav";
     private long mSizeOfRecData = 0;
     private DataOutputStream outFile;
-    private AudioRecorderAsWave mAudioRecorder = null;
     private ImageView mImageView = null;
+
+    public static void setBackgroundColor(int color) {
+        if (mTopLayout != null) {
+            mTopLayout.setBackgroundColor(color);
+        }
+
+    }
 //    private DataOutputStream dos;
 //    private byte[] clipData;
 //    private ByteArrayOutputStream recData;
-
 
     @Override
     protected void onStart() {
@@ -165,13 +132,13 @@ public class MonitoringActivity extends Activity {
     }
 
     public void handleRecordButtonClick(View view) {
-        if(mAudioRecorder!=null)
-            mAudioRecorder.startAudioCapture(null);
+//        if(mAudioRecorder!=null)
+//            mAudioRecorder.startAudioCapture(null);
     }
 
     public void handleStopButtonClick(View view) {
-        if(mAudioRecorder!=null)
-            mAudioRecorder.stopAudioCapture();
+//        if(mAudioRecorder!=null)
+//            mAudioRecorder.stopAudioCapture();
     }
 
 //    private void startAudioCapture() {
@@ -361,7 +328,7 @@ public class MonitoringActivity extends Activity {
         timer = new Timer(true);
         timer.scheduleAtFixedRate(timerTask, 0, 60 * 1000);
 
-        mAudioRecorder = new AudioRecorderAsWave();
+//        mAudioRecorder = new AudioRecorderAsWave();
         try {
             setUpGettingSensorList();
         } catch (IOException e) {
@@ -445,47 +412,25 @@ public class MonitoringActivity extends Activity {
         Log.d(TAG, "setUpMessageReceiver(MonitoringActivity) - pass");
     }
 
-    private class MessageReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "onReceive(MessageReceiver)");
-
-            String message = intent.getStringExtra("message");
-            String dataMessage = intent.getStringExtra("dataMessage");
-            // Display message in UI
-
-            if(message!=null){
-
-                if(message.equalsIgnoreCase("start"))
-                {
-                    String mtag = intent.getStringExtra("mTagnum");
-                    Toast.makeText(getApplicationContext(), "receivedMSG["+message+"]-"+mtag, Toast.LENGTH_LONG).show();
-                    startButtonProc(Integer.parseInt(mtag));
-
-                }else{
-                    Toast.makeText(getApplicationContext(), "received MSG["+message+"]", Toast.LENGTH_LONG).show();
-
-                }
-
-//                    new MyAsyncTask().execute(message);
-
-            }
-            else if(dataMessage!=null){
-
-                Toast.makeText(getApplicationContext(), "received DATA success", Toast.LENGTH_LONG).show();
-                //mStatus.setText("Recived Message : " + "Success");
-//                new MyAsyncTask().execute(dataMessage);
-            }
-
-
-        }
-    }
-
-    private void startButtonProc(int tagnum) {
+    private void startButtonProc(int tagnum, String sensorname, String samplingrate) {
         mTagNum = tagnum;
+        int interval = 0;
+        mSensorName = sensorname;
+        mSamplingRate = samplingrate;
+
+        if (samplingrate.equalsIgnoreCase("10Hz")) {
+            interval = 10 * 1000;
+        } else if (samplingrate.equalsIgnoreCase("50Hz")) {
+            interval = 50 * 1000;
+        } else if (samplingrate.equalsIgnoreCase("100Hz")) {
+            interval = 100 * 1000;
+        } else if (samplingrate.equalsIgnoreCase("200Hz")) {
+            interval = 200 * 1000;
+        }
+
+
         if (isStart == false) {
-//                                TrigerSensorService.startActionSensing(getApplicationContext(), 100 * 1000,"data_watch_intentservice_at_"+mTagNum);
-            SensorService.startActionSensing(mGoogleApiClient, getApplicationContext(), 20 * 1000, "watch" + mTagNum);
+            SensorService.startActionSensing(mGoogleApiClient, getApplicationContext(), interval, sensorname, "watch" + mTagNum);
 
             mImageView.setImageResource(R.drawable.btstop);
             mTagButton.setText("STOP");
@@ -495,7 +440,6 @@ public class MonitoringActivity extends Activity {
 
         } else if (isStart) {
             mTagNum++;
-//                                TrigerSensorService.stopActionSensing(getApplicationContext());
             SensorService.stopActionSensing(getApplicationContext());
             mImageView.setImageResource(R.drawable.btplay);
             mTagButton.setText("START " + mTagNum);
@@ -505,15 +449,6 @@ public class MonitoringActivity extends Activity {
         }
     }
 
-
-    public static void setBackgroundColor(int color)
-    {
-        if(mTopLayout!=null)
-        {
-            mTopLayout.setBackgroundColor(color);
-        }
-
-    }
     private void setUpView() {
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
 
@@ -523,14 +458,14 @@ public class MonitoringActivity extends Activity {
                 mTagButton = (Button) findViewById(R.id.tag);
                 mImageView = (ImageView) findViewById(R.id.spaceImg);
 
-                mTagButton.setText("START "+mTagNum);
+                mTagButton.setText("START " + mTagNum);
                 mTopLayout = (LinearLayout) stub.findViewById(R.id.toplayout);
 //                mStartRecordingButton = ()
                 if (!mImageView.hasOnClickListeners()) {
                     mImageView.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            startButtonProc(mTagNum);
+                            startButtonProc(mTagNum, mSensorName, mSamplingRate);
 
                         }
                     });
@@ -539,7 +474,7 @@ public class MonitoringActivity extends Activity {
                     mTagButton.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
-                            startButtonProc(mTagNum);
+                            startButtonProc(mTagNum, mSensorName, mSamplingRate);
 
                         }
 
@@ -555,7 +490,6 @@ public class MonitoringActivity extends Activity {
     public void onDestroy() {
         Log.d(TAG, "onDestroy(MonitoringActivity) - pass");
         SensorService.stopActionSensing(getApplicationContext());
-//        TrigerSensorService.stopActionSensing(getApplicationContext());
 
         timer.cancel();
 //        mSensorManager.cancelTriggerSensor(mListener, mSigMotion);
@@ -574,6 +508,7 @@ public class MonitoringActivity extends Activity {
 
                         // Now you can use the Data Layer API
                     }
+
                     @Override
                     public void onConnectionSuspended(int cause) {
                         Log.d(TAG, "onConnectionSuspended(mGoogleApiClient): " + cause);
@@ -589,5 +524,75 @@ public class MonitoringActivity extends Activity {
                 .build();
 
         Log.d(TAG, "setUpGoogleApiClient(MonitoringActivity) - pass");
+    }
+
+    public class MyTimerTask extends TimerTask {
+
+        @Override
+        public void run() {
+            System.out.println("Timer task started at:" + new Date());
+            completeTask();
+            System.out.println("Timer task finished at:" + new Date());
+        }
+
+        private void completeTask() {
+            try {
+
+                //assuming it takes 20 secs to complete the task
+                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent batteryStatus = _this.registerReceiver(null, ifilter);
+//
+                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+
+                float batteryPct = level / (float) scale;
+
+                int temp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                Log.d(TAG, "temp " + temp);
+
+                Log.d(TAG, " batteryPct - " + batteryPct + "   tmp - " + temp / 10);
+
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private class MessageReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "onReceive(MessageReceiver)");
+
+            String message = intent.getStringExtra("message");
+            String dataMessage = intent.getStringExtra("dataMessage");
+            // Display message in UI
+
+            if (message != null) {
+
+                if (message.equalsIgnoreCase("start")) {
+                    String mtag = intent.getStringExtra("mTagnum");
+                    String sensorname = intent.getStringExtra("mSensorName");
+                    String samplingrate = intent.getStringExtra("mSamplingRate");
+
+                    Toast.makeText(getApplicationContext(), "received MSG[" + message + "]-" + mtag + ", " + sensorname + "," + samplingrate, Toast.LENGTH_LONG).show();
+                    startButtonProc(Integer.parseInt(mtag), sensorname, samplingrate);
+
+                } else {
+                    Toast.makeText(getApplicationContext(), "received MSG no start [" + message + "]", Toast.LENGTH_LONG).show();
+
+                }
+
+//                    new MyAsyncTask().execute(message);
+
+            } else if (dataMessage != null) {
+
+                Toast.makeText(getApplicationContext(), "received DATA success", Toast.LENGTH_LONG).show();
+                //mStatus.setText("Recived Message : " + "Success");
+//                new MyAsyncTask().execute(dataMessage);
+            }
+
+
+        }
     }
 }

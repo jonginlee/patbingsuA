@@ -1,3 +1,6 @@
+/**
+ * Created by jonginlee on 04/10/2016.
+ */
 package kr.co.jonginlee.patbingsua;
 
 
@@ -50,6 +53,9 @@ public class ListenerService extends WearableListenerService {
             {
                 messageIntent.putExtra("message", words[0]);
                 messageIntent.putExtra("mTagnum", words[1]);
+                messageIntent.putExtra("mSensorName", words[2]);
+                messageIntent.putExtra("mSamplingRate", words[1]);
+
             }else{
                 messageIntent.putExtra("message", "no_start");
             }
