@@ -488,7 +488,7 @@ private String mLogsBuffer2 = "";
 
             }
             else if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
+//                Log.d(TAG, "onSensorChanged(SensorService) - " + sensorEvent.sensor.getVendor() + " - " + sensorEvent.sensor.getName() + " - x " + sensorEvent.values[0] + ", y " + sensorEvent.values[1] + ", z " + sensorEvent.values[2] + ", milli " + timeInMillis);
                 byte[] data = new String(tagNum + ",Accel," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," +0+"," + timeInMillis + "," + realtimeInMillis +","+sensorEvent.accuracy + "\r\n").getBytes();
                 mOutFile.write(data);
                 insertBufferLogs2("logs", new String(tagNum + ",accelerometer," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + "," + 0 + "," + timeInMillis + "," + realtimeInMillis + "," + sensorEvent.accuracy + "\r\n"));
